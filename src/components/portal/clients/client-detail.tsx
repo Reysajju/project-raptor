@@ -12,7 +12,7 @@ import { ChannelIcon } from "@/components/portal/common/channel-icon";
 import { AiSummaryDialog, AiDraftButton } from "@/components/portal/common/ai-assistant";
 import { PortalPreviewButton } from "@/components/portal/common/portal-preview";
 import { HealthScoreWidget } from "@/components/portal/common/health-score-widget";
-import { accentGradient } from "@/lib/accent";
+import { accentGradient, ACCENT_DOT, resolveAccent } from "@/lib/accent";
 import { cn } from "@/lib/utils";
 import {
   channelMeta,
@@ -307,14 +307,6 @@ const ACCENT_RING: Record<string, string> = {
   sky: "bg-sky text-sky-foreground",
   amber: "bg-amber text-amber-foreground",
   rose: "bg-rose text-rose-foreground",
-};
-
-const ACCENT_DOT: Record<string, string> = {
-  violet: "var(--accent)",
-  emerald: "var(--emerald-foreground)",
-  sky: "var(--sky-foreground)",
-  amber: "var(--amber-foreground)",
-  rose: "var(--rose-foreground)",
 };
 
 const SENDING_IDENTITY = "support@onboardwithus.com";
@@ -882,7 +874,7 @@ function TimelineTab({
                 </li>
               ) : (
                 <li key={item.key} className="py-1">
-                  <TimelineItem comm={item.comm} reduce={reduce ?? false} />
+                  <TimelineItem comm={item.comm} reduce={reduce ?? false} accentColor={client.accentColor} />
                 </li>
               )
             )}
@@ -996,13 +988,14 @@ function AiSummaryButton({ clientId }: { clientId: string }) {
   );
 }
 
-function TimelineItem({ comm, reduce }: { comm: Communication; reduce: boolean }) {
+function TimelineItem({ comm, reduce, accentColor }: { comm: Communication; reduce: boolean; accentColor: string }) {
   const isSystem = comm.channel === "system";
   const isInternal = comm.direction === "internal" && !isSystem && comm.channel !== "portal";
   const isCall = comm.channel === "call";
   const isEmail = comm.channel === "email";
   const channel = comm.channel as ChannelKind;
   const meta = channelMeta[channel] ?? channelMeta.system;
+  const accentVar = ACCENT_DOT[resolveAccent(accentColor)];
 
   if (isSystem) {
     return (
@@ -1024,12 +1017,16 @@ function TimelineItem({ comm, reduce }: { comm: Communication; reduce: boolean }
   // Alignment by direction
   const align = comm.direction === "inbound" ? "justify-start" : isInternal ? "justify-center" : "justify-end";
 
+  const isOutbound = comm.direction === "outbound" || comm.channel === "portal";
   const bubbleClass =
     comm.direction === "inbound"
       ? "border border-border bg-card"
       : isInternal
       ? "border border-dashed border-border bg-muted/30"
-      : "border border-transparent bg-accent/60 text-accent-foreground";
+      : "border border-transparent";
+  const bubbleStyle = isOutbound
+    ? { background: `color-mix(in srgb, ${accentVar} 55%, transparent)`, color: accentVar }
+    : undefined;
 
   return (
     <motion.div
@@ -1039,7 +1036,7 @@ function TimelineItem({ comm, reduce }: { comm: Communication; reduce: boolean }
       className={cn("flex w-full", align)}
     >
       <div className={cn("max-w-[88%] sm:max-w-[78%] group/timeline transition-transform duration-150 hover:-translate-y-0.5")}>
-        <div className={cn("rounded-lg p-3 surface-highlight transition-shadow duration-150 group-hover/timeline:shadow-md", bubbleClass)}>
+        <div className={cn("rounded-lg p-3 surface-highlight transition-shadow duration-150 group-hover/timeline:shadow-md", bubbleClass)} style={bubbleStyle}>
           {/* Meta header */}
           <div className="mb-1.5 flex items-center gap-2">
             <ChannelIcon channel={channel} />
@@ -1070,7 +1067,7 @@ function TimelineItem({ comm, reduce }: { comm: Communication; reduce: boolean }
 
           {/* Body */}
           {isCall ? (
-            <CallBody comm={comm} />
+            <CallBody comm={comm} accentVar={accentVar} />
           ) : isEmail && comm.bodyHtmlSanitized ? (
             <EmailBody html={comm.bodyHtmlSanitized} text={comm.bodyText} />
           ) : (
@@ -1138,7 +1135,7 @@ function EmailBody({ html, text }: { html: string; text: string }) {
   );
 }
 
-function CallBody({ comm }: { comm: Communication }) {
+function CallBody({ comm, accentVar }: { comm: Communication; accentVar: string }) {
   const [playing, setPlaying] = React.useState(false);
   const [showTranscript, setShowTranscript] = React.useState(false);
 
@@ -1148,7 +1145,10 @@ function CallBody({ comm }: { comm: Communication }) {
     <div className="space-y-2.5">
       {/* Direction + duration badge row */}
       <div className="flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-medium text-accent-foreground">
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium"
+          style={{ background: `color-mix(in srgb, ${accentVar} 15%, transparent)`, color: accentVar }}
+        >
           <Phone className="h-2.5 w-2.5" />
           {directionLabel}
         </span>
@@ -1163,7 +1163,8 @@ function CallBody({ comm }: { comm: Communication }) {
       <div className="flex items-center gap-2.5 rounded-md border border-border bg-muted/20 p-2">
         <button
           onClick={() => setPlaying((p) => !p)}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground transition-transform hover:scale-105 active:scale-95"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-transform hover:scale-105 active:scale-95"
+          style={{ background: accentVar, color: "var(--background)" }}
           aria-label={playing ? "Pause" : "Play recording"}
         >
           {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 translate-x-px" />}
@@ -1174,11 +1175,12 @@ function CallBody({ comm }: { comm: Communication }) {
               <span
                 key={i}
                 className={cn(
-                  "w-0.5 shrink-0 rounded-full bg-accent-foreground/70 transition-opacity",
+                  "w-0.5 shrink-0 rounded-full transition-opacity",
                   playing && "animate-pulse"
                 )}
                 style={{
                   height: `${15 + Math.abs(Math.sin(i * 0.6)) * 85}%`,
+                  background: `color-mix(in srgb, ${accentVar} 70%, transparent)`,
                   opacity: playing ? 1 : 0.4,
                   animationDelay: playing ? `${i * 30}ms` : undefined,
                 }}
@@ -1193,8 +1195,11 @@ function CallBody({ comm }: { comm: Communication }) {
 
       {/* Summary */}
       {comm.summary && (
-        <div className="rounded-md border border-accent/20 bg-accent/5 p-2.5">
-          <p className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-accent-foreground">
+        <div
+          className="rounded-md p-2.5"
+          style={{ background: `color-mix(in srgb, ${accentVar} 5%, transparent)`, border: `1px solid color-mix(in srgb, ${accentVar} 20%, transparent)` }}
+        >
+          <p className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide" style={{ color: accentVar }}>
             <Sparkles className="h-2.5 w-2.5" />
             AI summary
           </p>

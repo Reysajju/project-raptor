@@ -531,3 +531,75 @@ Unresolved issues / next-phase priorities:
   flow simulation, in-app onboarding checklist for new team members, per-client
   SLA tracking with breach alerts, a "relationship timeline" visualization
   showing the full history of a client relationship as a horizontal scroll.
+
+---
+Task ID: cron-round-6 (accent theming + health trend + interactive heatmap + onboarding)
+Agent: lead (orchestrator) — cron-triggered webDevReview
+Task: Assess project status, QA via agent-browser, fix bugs, add new features
+(onboarding checklist, interactive heatmap, health trend), extend accent theming.
+
+Work Log:
+- QA: all 9 views render without errors. Lint clean. Round 5 features (accent
+  header, health score, heatmap, bulk actions) all confirmed working.
+- BUG FIX: duplicate ACCENT_DOT definition in client-detail.tsx — I imported
+  ACCENT_DOT from @/lib/accent but the local definition was still there.
+  Removed the local copy. This caused a 500 error on page load.
+- STYLING: Extended per-client accent color theming to timeline bubbles.
+  - Outbound/portal message bubbles now use inline style with
+    color-mix(in srgb, accentVar 55%, transparent) for the background and
+    accentVar for the text color, instead of the hardcoded bg-accent/60.
+  - VLM-verified: "outbound timeline bubbles tinted sky-blue instead of violet"
+  for Sofia (sky accent client).
+- STYLING: Extended accent theming to the call card UI.
+  - Direction badge, play button, waveform bars, and AI summary card all use
+    inline styles with the client's accentVar via color-mix.
+- STYLING: Applied accent gradient to the portal preview dialog header.
+  - Replaced bg-gradient-to-br from-accent/10 with accentGradient(client.accentColor).
+- ENHANCEMENT: Health score trend (improving/declining vs last week).
+  - Updated GET /api/portal/clients/[id]/health to compute thisWeekComms vs
+    lastWeekComms. Returns trend ("up"|"down"|"stable"), trendLabel, trendDelta.
+  - Updated HealthScoreWidget to show a trend indicator (TrendingUp/TrendingDown/
+    Minus icon) with the trend label and weekly comm counts in a muted bar.
+  - VLM-verified: "trend indicator showing +4 this week".
+- ENHANCEMENT: Interactive heatmap (click a day to see details).
+  - Heatmap day squares are now <button> elements with click handlers.
+  - Clicking a day with activity sets selectedDate, highlights the day with
+    ring-2 ring-primary, and shows an inline detail panel below the grid with
+    the date, communication count, channel badges, and a Clear button.
+  - Clicking the same day again deselects it. Zero-activity days are not clickable.
+  - VLM-verified: "selected-day detail panel with date (Sat Oct 10), count (2),
+    channel badge (2 Email), and Clear button".
+- NEW FEATURE: Onboarding checklist widget on dashboard.
+  - GET /api/portal/dashboard/onboarding → 8 checklist items derived from
+    workspace data: connect integration, create client, send message, create
+    project, upload file, request approval, try simulator, invite team member.
+    Returns items[], doneCount, totalCount, pct, isComplete.
+  - OnboardingChecklistWidget: progress bar, % indicator, checklist with
+    done/pending icons, click-to-navigate, "Next:" CTA button. Auto-hides
+    (shows "All set! 🎉" party popper card) when all steps complete.
+  - Wired into the dashboard above the recent activity feed.
+  - VLM-verified: "All set! 🎉 onboarding completion card" (seeded data
+    satisfies all checklist items).
+
+Stage Summary:
+- ALL 9 views render without errors after the ACCENT_DOT fix (verified).
+- Lint: 0 errors, 0 warnings.
+- 1 new feature: onboarding checklist widget (auto-hides when complete).
+- 2 enhancements: health score trend with arrow, interactive heatmap with
+  click-to-select day detail panel.
+- 3 styling improvements: accent theming on timeline bubbles, call card UI,
+  and portal preview dialog header.
+- 3 new files: onboarding-checklist-widget.tsx, dashboard/onboarding/route.ts.
+- VLM-verified: sky-blue accent bubbles, health trend "+4 this week", heatmap
+  day detail panel, onboarding "All set!" card.
+
+Unresolved issues / next-phase priorities:
+- The onboarding checklist always shows "complete" with the current seed data.
+  Could add a "reset onboarding" option or track per-user completion.
+- The health score trend is based on comm volume only — could incorporate
+  open items trend, approval turnaround time, etc. for a richer trend.
+- The interactive heatmap could filter the recent activity feed above when a
+  day is selected (currently just shows an inline panel).
+- Future feature ideas: relationship timeline visualization (horizontal scroll),
+  real-time WebSocket updates, per-client SLA tracking, in-app onboarding for
+  new clients (not just team members), a "focus mode" that also dims the topbar.

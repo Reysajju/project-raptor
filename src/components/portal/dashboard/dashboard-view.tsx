@@ -49,6 +49,7 @@ import { StatusBadge } from "../common/status-badge";
 import { CountUp } from "../common/count-up";
 import { NextActionsWidget } from "./next-actions-widget";
 import { ActivityHeatmapWidget } from "./activity-heatmap-widget";
+import { OnboardingChecklistWidget } from "./onboarding-checklist-widget";
 import {
   Bar,
   BarChart,
@@ -167,8 +168,11 @@ export function DashboardView() {
         />
       </div>
 
+      {/* Onboarding checklist (auto-hides when complete) */}
+      <OnboardingChecklistWidget />
+
+      {/* Recent activity + channel mix */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-        {/* Recent activity feed */}
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>

@@ -4,6 +4,7 @@ import * as React from "react";
 import { useNav } from "@/components/portal/nav-store";
 import { useCurrentUser } from "@/components/portal/user-store";
 import { useQueryState, apiGet } from "@/components/portal/query-hooks";
+import { accentGradient } from "@/lib/accent";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -170,7 +171,7 @@ function PortalPreviewDialog({
         ) : (
           <div className="max-h-[70vh] overflow-y-auto scrollbar-thin">
             {/* Portal header (what client sees) */}
-            <div className="border-b border-border bg-gradient-to-br from-accent/10 to-transparent px-5 py-5">
+            <div className="border-b border-border px-5 py-5" style={{ background: accentGradient(client.accentColor) }}>
               <div className="flex items-center gap-3">
                 <Avatar className="h-12 w-12 border-2 border-border">
                   <AvatarFallback className="bg-primary text-primary-foreground text-base font-semibold">

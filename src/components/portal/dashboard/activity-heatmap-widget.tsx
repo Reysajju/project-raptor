@@ -7,7 +7,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useQueryState } from "@/components/portal/query-hooks";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 interface HeatmapDay {
@@ -29,6 +31,7 @@ export function ActivityHeatmapWidget() {
     "dashboard-heatmap",
     "/api/portal/dashboard/heatmap"
   );
+  const [selectedDate, setSelectedDate] = React.useState<string | null>(null);
 
   if (isLoading || !data) {
     return (
@@ -51,6 +54,8 @@ export function ActivityHeatmapWidget() {
   for (let i = 0; i < days.length; i += 7) {
     weeks.push(days.slice(i, i + 7));
   }
+
+  const selectedDay = selectedDate ? days.find((d) => d.date === selectedDate) : null;
 
   const intensity = (count: number) => {
     if (count === 0) return "bg-muted/40";
@@ -107,11 +112,19 @@ export function ActivityHeatmapWidget() {
                   {week.map((day) => (
                     <Tooltip key={day.date}>
                       <TooltipTrigger asChild>
-                        <div
+                        <button
+                          onClick={() => {
+                            if (day.count > 0) {
+                              setSelectedDate(selectedDate === day.date ? null : day.date);
+                            }
+                          }}
                           className={cn(
-                            "h-3 w-3 rounded-sm transition-colors hover:ring-1 hover:ring-primary/40",
-                            intensity(day.count)
+                            "h-3 w-3 rounded-sm transition-all hover:ring-1 hover:ring-primary/40",
+                            intensity(day.count),
+                            selectedDate === day.date && "ring-2 ring-primary ring-offset-1 ring-offset-background",
+                            day.count === 0 && "cursor-default"
                           )}
+                          aria-label={`${day.date}: ${day.count} communications`}
                         />
                       </TooltipTrigger>
                       <TooltipContent side="top" className="text-xs">
@@ -136,6 +149,35 @@ export function ActivityHeatmapWidget() {
             </div>
           </div>
         </div>
+
+        {/* Selected day detail */}
+        {selectedDay && (
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[11px] font-medium tabular">
+                {new Date(selectedDay.date).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {selectedDay.count} communication{selectedDay.count === 1 ? "" : "s"}
+              </span>
+              <div className="flex items-center gap-1.5">
+                {Object.entries(selectedDay.channels).map(([ch, n]) => (
+                  <span key={ch} className="inline-flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[9px] capitalize">
+                    {n} {ch}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-[10px]"
+              onClick={() => setSelectedDate(null)}
+            >
+              Clear
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

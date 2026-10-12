@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Heart, TrendingUp, AlertTriangle, Activity } from "lucide-react";
+import { Heart, TrendingUp, TrendingDown, Minus, AlertTriangle, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQueryState } from "@/components/portal/query-hooks";
 
@@ -16,6 +16,11 @@ interface HealthResponse {
   sentiment: string;
   sentimentTone: "emerald" | "amber" | "rose";
   factors: HealthFactor[];
+  trend?: "up" | "down" | "stable";
+  trendLabel?: string;
+  trendDelta?: number;
+  thisWeekComms?: number;
+  lastWeekComms?: number;
 }
 
 const TONE_STYLES: Record<string, { ring: string; text: string; bg: string; label: string }> = {
@@ -78,10 +83,19 @@ export function HealthScoreWidget({ clientId }: { clientId: string }) {
         </span>
       </div>
 
-      {/* Score ring */}
+      {/* Score ring + trend */}
       <div className="mt-3 flex items-center gap-4">
         <ScoreRing score={data.score} tone={tone.text} />
         <div className="flex-1 space-y-1.5">
+          {data.trend && (
+            <div className="mb-1.5 flex items-center gap-1.5 rounded-md bg-muted/40 px-2 py-1">
+              <TrendIcon trend={data.trend} />
+              <span className="text-[10px] font-medium text-muted-foreground">{data.trendLabel}</span>
+              <span className="ml-auto font-mono text-[10px] tabular text-muted-foreground">
+                {data.thisWeekComms ?? 0}w / {data.lastWeekComms ?? 0}w
+              </span>
+            </div>
+          )}
           {data.factors.map((f) => (
             <div key={f.label} className="flex items-center justify-between gap-2 text-[11px]">
               <span className="truncate text-muted-foreground">{f.label}</span>
@@ -140,4 +154,14 @@ function ScoreRing({ score, tone }: { score: number; tone: string }) {
       </div>
     </div>
   );
+}
+
+function TrendIcon({ trend }: { trend: "up" | "down" | "stable" }) {
+  if (trend === "up") {
+    return <TrendingUp className="h-3 w-3 text-emerald-foreground" />;
+  }
+  if (trend === "down") {
+    return <TrendingDown className="h-3 w-3 text-rose-foreground" />;
+  }
+  return <Minus className="h-3 w-3 text-muted-foreground" />;
 }

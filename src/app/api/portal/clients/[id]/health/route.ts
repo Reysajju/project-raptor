@@ -115,11 +115,45 @@ export async function GET(
     total >= 25 ? "rose" :
     "rose";
 
+  // Trend: compare this week's communication volume vs last week's
+  const weekAgo = new Date(now.getTime() - 7 * dayMs);
+  const twoWeeksAgo = new Date(now.getTime() - 14 * dayMs);
+  const [thisWeekComms, lastWeekComms] = await Promise.all([
+    db.communication.count({
+      where: { clientId: id, occurredAt: { gte: weekAgo } },
+    }),
+    db.communication.count({
+      where: { clientId: id, occurredAt: { gte: twoWeeksAgo, lt: weekAgo } },
+    }),
+  ]);
+
+  let trend: "up" | "down" | "stable";
+  let trendLabel: string;
+  let trendDelta: number;
+  if (thisWeekComms > lastWeekComms) {
+    trend = "up";
+    trendDelta = thisWeekComms - lastWeekComms;
+    trendLabel = `+${trendDelta} this week`;
+  } else if (thisWeekComms < lastWeekComms) {
+    trend = "down";
+    trendDelta = lastWeekComms - thisWeekComms;
+    trendLabel = `-${trendDelta} this week`;
+  } else {
+    trend = "stable";
+    trendDelta = 0;
+    trendLabel = "No change";
+  }
+
   return NextResponse.json({
     score: total,
     sentiment,
     sentimentTone,
     factors,
+    trend,
+    trendLabel,
+    trendDelta,
+    thisWeekComms,
+    lastWeekComms,
     lastContact: comms?.occurredAt ?? null,
     lastContactChannel: comms?.channel ?? null,
     openCount,
