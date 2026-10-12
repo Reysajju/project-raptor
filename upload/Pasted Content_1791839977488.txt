@@ -1,0 +1,401 @@
+Onboard With Us: Agent-Swarm Build Plan
+Next.js + Supabase (free tier) + Vercel, with Gmail, OpenPhone (Quo) and RingCentral in one unified timeline.
+0. Read this first: corrections to the original plan
+The original plan is a good skeleton, but several things would break in production. The plan below fixes them.
+1. Vercel Hobby is non-commercial. Vercel's terms restrict the free Hobby plan to personal, non-commercial use. A portal that serves paying clients is commercial. It will run fine technically, but you risk suspension. Options: (a) accept the risk while prototyping, (b) move to Vercel Pro (about $20/month) at launch, or (c) keep the exact same Next.js code and deploy to Cloudflare Pages/Workers or Netlify, whose free tiers allow commercial use. Check current terms before launch.
+2. Supabase free projects pause after about 7 days of inactivity. Add a daily keep-alive (a Vercel Cron hitting a lightweight route that runs one query). Also note that the free tier has no point-in-time backups, so you need your own backup job (Phase 9).
+3. Gmail push notifications expire every 7 days. The users.watch call must be renewed (daily cron). Also, a Google OAuth app left in Testing mode issues refresh tokens that expire after 7 days. Fix: use a Google Workspace account with the app set to Internal, or publish the app, or use a service account with domain-wide delegation. Reading mail uses a restricted scope, so a public app needs Google verification; an internal app does not.
+4. Webhook subscriptions are not set-and-forget. RingCentral subscriptions expire and must be renewed. OpenPhone webhooks need signature verification. All three providers can deliver duplicates and out-of-order events, so every write must be idempotent.
+5. Never put the service role key in client code. It bypasses RLS. Only server code (route handlers, server actions) may use it. The original env list was also missing several required variables (see Section 10).
+6. Vercel serverless functions are short-lived. Webhook routes must verify, store the raw event, return 200 fast, and process after the response. Heavy work (fetching recordings, parsing email threads) happens in a follow-up job, not inside the webhook request.
+7. OpenPhone/Quo and RingCentral features depend on your paid plans. API and webhook access and AI call summaries/transcripts are plan-dependent. Confirm your plan includes them before building Phase 5/6. If a feature is not available, the plan includes a fallback.
+Zero-cost means: no paid database, no paid hosting beyond the Vercel decision above, and all supporting services on free tiers. Your phone provider subscriptions are separate and assumed to exist.
+1. Product definition
+One sentence: a dark-mode-native command center where your team sees every email, text, call, file and project update for a client in one chronological stream, plus a branded, restricted portal where clients approve work, upload files, fill forms and message you.
+Users
+Role
+What they can do
+Owner
+Everything, plus integrations, seats, audit log
+Admin / Team member
+Manage assigned clients, reply on all channels, manage projects and files
+Client
+See only their own workspace: portal messages and shared items, projects, files, forms, approvals
+Client contact (optional)
+Additional people at the same client company, same restrictions
+Core feature set (all in scope)
+• Unified timeline per client (email, SMS, calls, notes, files, approvals, status changes)
+• Shared inbox with assignment, status (open/snoozed/done), unmatched-sender triage
+• Reply from the portal: email via Gmail API, SMS via OpenPhone API
+• Call log with recordings, transcripts and summaries where the provider supplies them
+• Client directory with multiple emails/phones per client, tags, custom fields
+• Projects with Kanban and milestone view, tasks, due dates
+• File vault with folders, versions, signed-URL sharing
+• Approvals (deliverable sign-off with comment and timestamp)
+• Intake forms (builder + client-facing renderer)
+• Client portal with magic-link login
+• Global search and command palette (Ctrl/Cmd+K)
+• Realtime updates and notifications (in-app, optional email digest)
+• Audit log, roles, MFA for staff
+• Optional AI helpers on free API tiers (reply drafts, thread summaries)
+2. Tech stack (all free-tier friendly)
+Layer
+Choice
+Why
+Framework
+Next.js (latest stable, App Router, TypeScript strict)
+Server components, route handlers, server actions, native on Vercel
+UI
+Tailwind CSS, shadcn/ui (Radix), lucide-react, Motion (Framer Motion), cmdk, Sonner
+Fast to build, ownable components, accessible
+Data fetching
+Server components + TanStack Query for interactive lists
+Instant feel with optimistic updates
+Validation
+Zod everywhere (forms, API input, webhook payloads)
+One schema, shared types
+Forms
+react-hook-form + Zod resolver
+Intake form builder and settings
+Drag and drop
+dnd-kit
+Kanban and file upload zones
+Database/Auth/Storage/Realtime
+Supabase free tier
+Postgres + RLS + Auth + private storage + Realtime
+Phone parsing
+libphonenumber-js
+Normalize every number to E.164 for matching
+Email parsing
+Gmail API + DOMPurify for HTML
+Safe rendering of untrusted email
+Rate limiting
+Upstash Redis free tier
+Protect public endpoints
+Errors/monitoring
+Sentry free tier, Vercel logs
+Catch webhook failures
+Email notifications (optional)
+Resend free tier or Gmail API send
+Digests, invites
+Testing
+Vitest, Playwright, Supabase local (Docker)
+Unit, e2e, RLS tests
+CI
+GitHub Actions
+Lint, typecheck, test, backup job
+Free-tier limits to design around (verify current numbers before launch)
+Service
+Approx. free limit
+Design response
+Supabase DB
+500 MB
+Store text only; attachments in Storage; archive old raw payloads
+Supabase Storage
+1 GB, 50 MB max file
+Store recording links, not copies; compress images; warn on large uploads
+Supabase Auth
+50,000 monthly active users
+Plenty for clients
+Supabase Realtime
+About 200 concurrent connections
+Subscribe only to the open client or inbox
+Supabase pausing
+After about 7 days idle
+Daily keep-alive cron
+Vercel Hobby cron
+Daily-frequency jobs only, few jobs
+One daily maintenance route doing several tasks
+Vercel function duration
+Short default limit
+Verify, enqueue, return; process in small batches
+Gmail API / Pub/Sub
+Generous free quotas
+Fine for a small team
+Rule of thumb: if you outgrow 500 MB of database, your business has outgrown free. Upgrading Supabase later needs zero code changes.
+3. Architecture
+Clients/Team (browser)
+   |  Next.js on Vercel (RSC, server actions, route handlers)
+   |        |
+   |        +-- /api/webhooks/openphone   (signature check -> store raw -> 200)
+   |        +-- /api/webhooks/ringcentral (validation-token handshake -> store raw -> 200)
+   |        +-- /api/webhooks/gmail       (Pub/Sub push -> historyId -> fetch new mail)
+   |        +-- /api/cron/daily           (renew watches, keep-alive, retry failed events, digests)
+   |
+   +-- Supabase: Postgres (RLS) | Auth | Storage (private) | Realtime
+Key architectural rules
+1. Raw event first. Every webhook writes the verified raw payload into webhook_events (unique on provider + event id). A normalizer then turns it into a communications row. If normalization fails, the raw event is kept and retried. Nothing is ever lost.
+2. Idempotency. communications has a unique index on (provider, provider_message_id). Inserts use upsert, so duplicate deliveries become no-ops.
+3. Contact matching. Incoming email addresses and phone numbers are matched against client_contacts (lowercase email, E.164 phone). No match goes to the Unmatched triage queue, where a human links it to a client or creates a new client in one click.
+4. Server-only secrets. Provider tokens live in server env vars or an encrypted integration_credentials table (encrypted with a key from env). Browsers never see them.
+5. RLS is the security boundary. UI hiding is cosmetic. Every table has RLS enabled, and every policy is covered by an automated test.
+4. Database schema (Supabase Postgres)
+Enable RLS on every table. Use UUID primary keys, created_at/updated_at timestamps, and soft delete (deleted_at) on clients, projects and files.
+• profiles: id (= auth.users.id), role (owner|admin|client), full_name, avatar_url, client_id (nullable, set for client users)
+• clients: id, name, company, status, tags[], owner_id, custom_fields jsonb, notes
+• client_contacts: id, client_id, type (email|phone), value_normalized, label, is_primary. Unique on (type, value_normalized)
+• communications: id, client_id (nullable until triaged), channel (email|sms|call|portal|note|system), direction (inbound|outbound|internal), provider, provider_message_id, thread_key, subject, body_text, body_html_sanitized, summary, transcript, audio_url, duration_sec, from_value, to_value, status, assigned_to, visible_to_client boolean default false, occurred_at
+• attachments: id, communication_id, client_id, storage_path, file_name, mime_type, size_bytes
+• projects: id, client_id, title, status, stage, due_date, position
+• milestones / tasks: id, project_id, title, status, assignee_id, due_date, position
+• files: id, client_id, project_id, folder, file_name, storage_path, version, uploaded_by, shared_with_client boolean
+• approvals: id, client_id, project_id, file_id, title, status (pending|approved|changes_requested), decided_by, decided_at, comment
+• forms / form_responses: id, client_id, schema jsonb, status, answers jsonb, submitted_at
+• notifications: id, user_id, type, payload jsonb, read_at
+• integration_credentials: provider, encrypted_tokens, expires_at, watch_expires_at, last_sync_at, status
+• webhook_events: id, provider, event_id, event_type, raw jsonb, status (received|processed|failed), attempts, error, received_at. Unique on (provider, event_id)
+• audit_log: id, actor_id, action, entity, entity_id, metadata jsonb, created_at
+Indexes: (client_id, occurred_at desc) on communications; GIN full-text index on subject + body_text; the unique indexes noted above.
+RLS policy pattern
+• Staff (owner/admin): full access via an is_staff() security-definer function reading profiles.role.
+• Client: select only where client_id matches their profile and visible_to_client / shared_with_client is true where that column exists.
+• Client writes are limited to: portal messages (channel portal, inbound), approval decisions on their own approvals, form responses on their own forms, uploads into their own folder.
+• webhook_events, integration_credentials, audit_log: staff read-only (credentials: no client-side read at all); written only by the service role.
+• Storage: private buckets, path convention clients/{client_id}/..., storage policies mirror table policies, downloads via short-lived signed URLs.
+5. UX and visual design system
+Concept: calm precision. Think Linear meets Intercom: dense but quiet, fast, keyboard-first, and a little bit delightful.
+Visual language
+• Dark-native with a true light theme (system-aware toggle). Background near-black with a faint cool tint, not pure black. Surfaces step up in lightness for depth.
+• One accent color for primary actions (suggest indigo-violet) plus semantic status colors: emerald (healthy/approved), amber (waiting), rose (blocked/overdue), sky (info).
+• Hairline borders (1px, low contrast), subtle inner highlights, glass panels only for overlays (command palette, popovers). Avoid heavy blur everywhere.
+• Typography: one variable sans (Inter or Geist) for UI, one mono for numbers, phone numbers and IDs. Tight tracking on headings, tabular numerals in tables.
+• All colors, radii, spacing and shadows are CSS variables (design tokens), so theming and a per-client brand color in the client portal are trivial.
+Signature UX moments
+1. The Unified Timeline. Chat-log style stream with channel-colored icons, day dividers, collapsed long emails (expand inline), call cards with an audio player, summary and transcript tabs, and inline file chips. A composer at the bottom with channel tabs (Email, SMS, Note) that always shows the recipient and the sending number or address, so staff never send from the wrong identity.
+2. Command palette (Cmd/Ctrl+K). Jump to any client, project or file; run actions (new client, log note, assign, snooze). Powered by cmdk and Postgres full-text search.
+3. Three-pane inbox. Filters, thread list, conversation, with keyboard shortcuts (J/K to move, E to mark done, A to assign, R to reply, Z to snooze).
+4. Client health strip. At the top of each client: last contact, open items, next milestone, pending approvals. Facts only, no guessed sentiment.
+5. Optimistic everything. Sending a message, moving a Kanban card, approving a file: UI updates instantly, reconciles with the server, rolls back with a toast on failure.
+6. Motion with restraint. 150-250 ms springs for list insertions, layout transitions for Kanban, subtle number count-ups. Respect prefers-reduced-motion.
+7. Designed skeletons, empty states and errors for every screen, never blank space or raw error text.
+8. The client portal feels different from the admin. Lighter, friendlier, one primary action per screen: 'Needs your approval', 'Upload your files', 'Message us'. A progress ribbon shows project milestones at a glance. Optional per-client logo and accent color.
+9. Mobile first for the client portal, responsive down to small phones; staff app usable on tablet and phone.
+Accessibility and quality bar: WCAG AA contrast, full keyboard navigation, visible focus rings, ARIA labels from Radix, Lighthouse 90+ on portal pages.
+6. Agent swarm operating model
+A swarm works only if agents do not collide. Put these rules in the repo root file AGENTS.md.
+Roles
+Agent
+Owns
+Architect
+Phase 0 contracts: schema, types, API contracts, folder structure, AGENTS.md
+Backend/DB agent
+Migrations, RLS, SQL functions, seed data, RLS tests
+Auth/Security agent
+Auth flows, roles, middleware, headers, rate limiting, audit log
+UI-system agent
+Design tokens, shared components, layouts, theming
+Feature agents (Inbox, Clients, Projects, Files, Portal, Forms)
+One vertical slice each, inside its own folder
+Integration agents (Gmail, OpenPhone, RingCentral)
+Each owns its provider folder and webhook route only
+QA agent
+Unit, e2e and RLS tests, accessibility checks, webhook load checks
+DevOps agent
+CI, Vercel config, cron, backups, monitoring, docs
+Rules
+1. Contracts before code. Phase 0 produces schema.sql, generated Supabase types, Zod schemas in /lib/schemas, and an API contract doc. All later agents code against these. Changing a contract needs the Architect.
+2. File ownership. Each agent edits only its folders. Shared code (/components/ui, /lib) changes go through the UI-system or Architect agent.
+3. Definition of done for every subphase: typecheck passes, lint passes, tests for the new code pass, no secrets in code, loading/empty/error states exist, a short entry is added to docs/CHANGELOG.md, and the acceptance criteria are verified.
+4. Small PRs, one subphase each, with a checklist in the description. Merge only when CI is green.
+5. Mock providers early. Integration agents ship a fake provider (fixtures + a script that posts sample webhooks) so the UI and QA agents are never blocked waiting for real API credentials.
+6. Human checkpoints (you): after Phase 1 (schema review), Phase 2 (look and feel), Phase 9 (security review), and before go-live.
+Suggested repo layout
+/app (routes: (admin), (portal), (auth), api)
+/components (ui, timeline, inbox, kanban, files, forms)
+/lib (supabase clients, schemas, phone/email utils, crypto, rate-limit)
+/integrations (gmail, openphone, ringcentral: client, normalize, fixtures)
+/supabase (migrations, seed.sql, tests)
+/docs (AGENTS.md, CHANGELOG.md, RUNBOOK.md, API-CONTRACTS.md)
+7. Phased build plan with acceptance criteria
+Phase 0: Contracts and scaffolding
+• 0.1 Repo and tooling: Next.js + TypeScript strict, Tailwind, shadcn/ui, ESLint, Prettier, Husky pre-commit, Vitest, Playwright, GitHub Actions CI, .env.example.
+• 0.2 Contracts: full schema SQL, generated types, Zod schemas, an event-normalization contract (what every provider event becomes), AGENTS.md.
+• 0.3 Supabase local dev: Docker-based local Supabase, migration workflow, seed script with 3 fake clients and 200 fake communications.
+• Done when: a new agent can clone, run one command, and see a seeded app skeleton.
+Phase 1: Database, RLS and auth
+• 1.1 Migrations: all tables, indexes, updated_at triggers, soft delete, full-text search column.
+• 1.2 RLS: is_staff() function, client-scoped policies, storage policies. RLS tests that log in as client A and prove they cannot read client B's rows, files or messages, and cannot read non-shared items.
+• 1.3 Auth: email + password for staff with TOTP MFA required for owner/admin; magic-link login for clients; invite flow (staff creates a client user, system emails the invite); first user becomes owner; password reset.
+• 1.4 Middleware: route groups protect (admin) and (portal); role redirects; session refresh with Supabase SSR helpers.
+• Done when: the RLS test suite is green and a client user cannot reach any admin route or data.
+Phase 2: Design system and app shell
+• 2.1 Tokens and primitives: theme variables, light/dark, buttons, inputs, badges, cards, dialogs, tables, toasts, skeletons, empty states.
+• 2.2 Admin shell: collapsible sidebar, top bar with global search trigger, notification bell, user menu, breadcrumbs, responsive behavior.
+• 2.3 Command palette: navigation and action registry.
+• 2.4 Component gallery page (/dev/ui) showing every component in both themes for visual review.
+• Done when: you approve the look at the Phase 2 checkpoint, before feature work scales.
+Phase 3: Clients and the unified timeline
+• 3.1 Client directory: table with search, tag filters, saved views, bulk actions, create/edit drawer, multiple contacts per client.
+• 3.2 Client detail: header with health strip, tabs (Timeline, Projects, Files, Forms, Details).
+• 3.3 Timeline engine: cursor-based pagination (infinite scroll upward), grouping by day, channel renderers (email, SMS, call, note, system), email HTML in a sandboxed iframe with sanitized content, attachments.
+• 3.4 Composer: note and portal message now; email and SMS tabs stubbed until Phases 5 and 6.
+• 3.5 Realtime: Supabase Realtime subscription scoped to the open client; new items animate in; unread markers.
+• Done when: seeded data renders smoothly with 5,000 timeline items, new inserts appear live, and sanitized email cannot execute scripts.
+Phase 4: Shared inbox and triage
+• 4.1 Inbox views: All, Mine, Unassigned, Unmatched, Snoozed, Done.
+• 4.2 Thread model: email grouped by thread id, SMS by contact number, calls as standalone events linked to the contact.
+• 4.3 Actions: assign, change status, snooze with reminder, link an unmatched sender to an existing client or create a client from the sender, keyboard shortcuts.
+• 4.4 Notifications: in-app notifications for assignment and inbound messages; optional daily email digest.
+• Done when: an unmatched inbound item can be triaged into a client in two clicks and appears in that client's timeline.
+Phase 5: Gmail integration
+• 5.1 Google Cloud setup: project, enable Gmail API and Pub/Sub, OAuth consent (Internal if Workspace), credentials. Scopes: gmail.readonly, gmail.send (add gmail.modify only if you want mark-as-read or labels).
+• 5.2 Connect flow: settings page 'Connect Gmail' runs OAuth and stores the encrypted refresh token for the shared mailbox (support@ or similar).
+• 5.3 Inbound sync: users.watch to a Pub/Sub topic with a push subscription to /api/webhooks/gmail. On push, read the new historyId, call history.list from the last stored id, fetch messages, normalize (headers, text/HTML, thread id, attachments to Storage), match contacts, insert. Verify the push with a secret query token or the Pub/Sub OIDC token. Fallback: the daily cron plus a manual 'Sync now' button run the same history.list logic.
+• 5.4 Outbound: reply in-thread with correct In-Reply-To and References headers, signature support, attachments.
+• 5.5 Maintenance: daily watch renewal, token refresh handling, a health indicator in settings ('Last synced 2 min ago').
+• Done when: an email sent to the mailbox shows in the right client timeline within seconds, and a portal reply arrives in the sender's inbox as part of the same thread.
+Phase 6: OpenPhone (Quo) and RingCentral
+OpenPhone / Quo
+• 6.1 Webhook endpoint /api/webhooks/openphone: verify the HMAC signature header against the raw body with OPENPHONE_WEBHOOK_SECRET (read the raw body before JSON parsing), store the raw event, return 200.
+• 6.2 Event mapping: message received/delivered, call completed, call recording completed, call summary completed, call transcript completed. A call row is created on completion and enriched later when the recording, summary or transcript events arrive (update the same row by call id).
+• 6.3 Outbound SMS: send through the OpenPhone API from the composer, show delivery state, handle failures, show segment count.
+RingCentral
+• 6.4 Auth: server-to-server JWT auth flow from a private app; store tokens encrypted; automatic refresh.
+• 6.5 Webhook subscription: create a subscription for telephony session events (or poll the call log if you prefer) targeting /api/webhooks/ringcentral. The endpoint must echo the Validation-Token header on the initial handshake. Renew the subscription in the daily cron and re-create it if it lapses.
+• 6.6 Call enrichment: on call end, fetch the call log record and store direction, duration, result and a recording reference. Stream recording content only on demand through an authenticated server route, never a public URL. Add AI summary or transcript only if your RingCentral licence includes it; otherwise show a one-tap 'Add call note' prompt to staff.
+• 6.7 Number matching: all numbers normalized to E.164; internal extension-to-extension calls ignored.
+• Done when: a text to your OpenPhone number and a call on RingCentral each appear in the correct client timeline, duplicates never create two rows, and a deliberately broken payload lands in webhook_events as failed and is retried by the cron.
+Phase 7: Projects, files, approvals and forms
+• 7.1 Projects: Kanban (dnd-kit, optimistic reorder), milestone timeline, tasks with assignees and due dates; status changes are written to the client timeline as system events.
+• 7.2 File vault: drag-and-drop upload with progress, folders, versions (same name creates v2), preview for images and PDF, 'Share with client' toggle, signed-URL downloads, and a storage usage meter against the 1 GB cap.
+• 7.3 Approvals: attach a file to an approval request; the client approves or requests changes with a comment; audit-logged; notifies staff.
+• 7.4 Intake forms: staff-side builder (short text, long text, select, checkbox, date, file upload), conditional fields, client-side renderer with autosave; submission locks the form and notifies staff.
+• Done when: staff request approval on a file, the client sees it in the portal and approves, and the decision appears in both timelines with a timestamp.
+Phase 8: Client portal experience
+• 8.1 Portal home: greeting, 'Needs your attention' cards (approvals, forms, unread messages), project progress ribbon, recent activity limited to visible_to_client items.
+• 8.2 Messages: simple chat thread with staff, attachments, read receipts; staff replies from the inbox are marked as portal messages.
+• 8.3 Files, approvals and form pages, plus a profile page with notification preferences.
+• 8.4 White-label touches: per-client logo and accent color, custom welcome message.
+• 8.5 Onboarding: first-login checklist ('Confirm details, upload logo, complete intake form').
+• Done when: a client on a phone can log in via magic link, approve a deliverable and upload a file in under a minute.
+Phase 9: Search, insights, hardening and operations
+• 9.1 Global search: Postgres full-text across clients, communications and files, with highlighted snippets.
+• 9.2 Dashboard: open items, unanswered messages older than N hours, projects at risk, activity by channel. Plain SQL aggregates, no paid analytics.
+• 9.3 Security hardening: security headers and a strict CSP (own origin, Supabase, fonts only), CSRF-safe server actions, rate limiting on login, magic link and webhooks, input validation everywhere, upload type and size checks, sanitized HTML, secrets scan in CI, dependency audit.
+• 9.4 Audit log UI for owners (who viewed, exported or changed what).
+• 9.5 Backups: a weekly GitHub Actions job runs pg_dump against Supabase and stores the encrypted dump in a private repository or a free object store such as Cloudflare R2. Document and test the restore.
+• 9.6 Data retention: a monthly step trims processed webhook_events raw payloads older than 30 days to protect the 500 MB cap.
+• 9.7 Monitoring: Sentry for errors, a /api/health route, an integration status panel in settings, and an email alert when a webhook fails repeatedly.
+• 9.8 Optional AI helpers: thread summary and reply draft using a free-tier LLM API. Strictly optional, run only when staff click, and review the privacy implications of sending client data to a third party before enabling.
+• Done when: the QA agent's full e2e suite passes, a restore from backup is proven, and the Section 9 checklist is signed off.
+8. Testing strategy
+• Unit: phone/email normalization, event normalizers (using recorded provider fixtures), signature verification, thread grouping.
+• RLS tests: run against local Supabase on every CI run. A failing RLS test blocks release.
+• Integration: a script replays sample OpenPhone, RingCentral and Gmail payloads into a test deployment, including duplicates, out-of-order events and malformed payloads.
+• E2E (Playwright): staff login with MFA, create client, receive webhook, reply, project drag, file upload, client magic link, approval flow, mobile viewport.
+• Manual UAT: a real test client, test phone number and test mailbox, one full week of use before go-live.
+9. Pre-launch security checklist
+• Service role key and provider secrets exist only in Vercel env vars (Production and Preview scoped separately).
+• RLS enabled on all tables, tests green, no using (true) policies.
+• Webhook signatures and tokens verified on all three endpoints.
+• MFA enforced for owner/admin accounts.
+• Storage buckets private, only signed URLs issued.
+• Email HTML sanitized and rendered in a sandboxed iframe.
+• Rate limits active on login, magic link and webhooks.
+• Audit log recording sensitive actions.
+• Backup job ran successfully and a restore was tested.
+• Privacy policy and terms pages exist; retention rules documented. Call recording and SMS storage can carry consent obligations depending on where you and your clients are, so check local rules.
+10. Environment variables
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=            # server only, never NEXT_PUBLIC
+
+# App
+NEXT_PUBLIC_APP_URL=https://your-portal.vercel.app
+ENCRYPTION_KEY=                       # 32-byte base64, encrypts stored provider tokens
+CRON_SECRET=                          # Vercel sends it as a bearer token to cron routes
+
+# Gmail
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=https://your-portal.vercel.app/api/integrations/gmail/callback
+GMAIL_PUBSUB_TOPIC=projects/<project>/topics/<topic>
+GMAIL_PUSH_TOKEN=                     # shared secret on the Pub/Sub push URL
+
+# OpenPhone / Quo
+OPENPHONE_API_KEY=
+OPENPHONE_WEBHOOK_SECRET=
+
+# RingCentral
+RINGCENTRAL_SERVER_URL=https://platform.ringcentral.com
+RINGCENTRAL_CLIENT_ID=
+RINGCENTRAL_CLIENT_SECRET=
+RINGCENTRAL_JWT=
+
+# Optional
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+SENTRY_DSN=
+RESEND_API_KEY=
+11. Deployment and go-live guide
+Step 1: Create the Supabase project (free)
+1. Sign up at supabase.com, create a project, choose the region closest to your clients, and save the database password in a password manager.
+2. Run your migrations (Supabase CLI: supabase link, then supabase db push) or paste schema.sql into the SQL editor.
+3. Under Authentication, enable Email, set the Site URL to your production URL, add redirect URLs (production and http://localhost:3000), and customize the magic-link email template with your branding.
+4. Create private Storage buckets (files, attachments) and apply the storage policies from the migrations.
+5. Copy the project URL, anon key and service role key from Project Settings, API.
+Step 2: Push the code to GitHub and import into Vercel
+1. Push the repository to GitHub (private).
+2. In Vercel choose Add New, Project, import the repo. Framework preset: Next.js.
+3. Add every variable from Section 10 under Settings, Environment Variables, with separate values for Preview and Production. Mark secrets as sensitive.
+4. Deploy. You get https://your-portal.vercel.app. Add a custom domain under Settings, Domains if you have one (recommended, since provider webhooks and OAuth redirects are tied to the URL).
+5. Update NEXT_PUBLIC_APP_URL, the Supabase Site URL and the Google redirect URI to the final domain, then redeploy.
+Step 3: Add the cron job
+In vercel.json define one daily cron hitting /api/cron/daily. That single route does the keep-alive query, Gmail watch renewal, RingCentral subscription renewal, retry of failed webhook events, snooze reminders, digest emails, and (via a monthly check inside the route) payload trimming. Protect it by checking Authorization: Bearer $CRON_SECRET. Also add a 'Sync now' button in settings so staff never wait for the daily job.
+Step 4: Connect Gmail
+1. In Google Cloud Console create a project and enable the Gmail API and Cloud Pub/Sub API.
+2. Configure the OAuth consent screen (Internal for Workspace) and create a Web OAuth client with the redirect URI from your env.
+3. Create a Pub/Sub topic and grant gmail-api-push@system.gserviceaccount.com the Publisher role on it.
+4. Create a push subscription to https://your-portal.vercel.app/api/webhooks/gmail?token=<GMAIL_PUSH_TOKEN>.
+5. In the portal go to Settings, Integrations, Connect Gmail and approve access. The app calls users.watch and shows 'Connected'.
+6. Send a test email and confirm it appears.
+Step 5: Connect OpenPhone / Quo
+1. In the workspace settings create an API key (needs a plan with API access).
+2. Create a webhook pointing to https://your-portal.vercel.app/api/webhooks/openphone, select message and call events (including recording, summary and transcript if offered), and copy the signing secret into OPENPHONE_WEBHOOK_SECRET.
+3. Redeploy, send a test text, and check that the Integrations page shows the event received.
+Step 6: Connect RingCentral
+1. In the RingCentral Developer Console create a private server app with JWT auth and permissions for call log, telephony sessions and call recordings (plus AI permissions only if your licence includes summaries).
+2. Generate a JWT credential for the service user and add the client id, secret and JWT to Vercel.
+3. In Settings, Integrations, click 'Create subscription'. The app registers the webhook for https://your-portal.vercel.app/api/webhooks/ringcentral and answers the validation handshake.
+4. Place a test call and confirm it logs.
+Step 7: Create the owner account and invite the team
+Sign up the first user (auto-promoted to owner), enable MFA, invite team members, import existing clients via CSV (the import maps email and phone into client_contacts), then invite pilot clients.
+Step 8: Pilot, then go live
+1. Run one week with 2-3 friendly clients and the team using it for real.
+2. Check the Integrations health panel, Sentry and Vercel logs daily.
+3. Verify the backup job ran and test a restore.
+4. Resolve the Vercel Hobby commercial-use question (upgrade, or move the same code to a free host that allows commercial use).
+5. Announce to all clients with a short how-to and a link.
+12. Operations runbook (keep in docs/RUNBOOK.md)
+Symptom
+Likely cause
+Fix
+Emails stopped appearing
+Gmail watch expired or refresh token revoked
+Click 'Sync now', reconnect Gmail, check cron logs
+Texts missing
+Webhook secret mismatch or webhook disabled
+Check webhook_events for failed rows, verify the secret
+Calls missing summaries
+Provider not finished processing, or plan lacks the feature
+Wait for the enrichment event; otherwise add a manual call note
+Database errors after a quiet week
+Supabase project paused
+Resume in the dashboard; confirm the daily keep-alive runs
+Duplicate messages
+Idempotency key wrong
+Check the unique index and the normalizer's provider id mapping
+Database near 500 MB
+Raw payloads or large bodies
+Run the trimming job, archive old threads, then consider upgrading
+Client sees another client's data
+RLS gap
+Treat as an incident: disable the portal, fix the policy, add a regression test
+13. Build order for the swarm
+1. Phases 0 and 1 are strictly sequential and need your review.
+2. After Phase 1, run in parallel: Phase 2 (UI system) with Phases 5 and 6 (integration agents working from fixtures and mocks).
+3. Phases 3 and 4 depend on Phase 2. Phase 7 depends on Phase 3.
+4. Phase 8 depends on Phase 7. Phase 9 lands last, but its security tests run continuously from Phase 1.
+5. Real provider credentials are only needed at the end of Phases 5 and 6, so you can start building today.
+If you tell me which agent framework you are using (Claude Code subagents, a custom orchestrator, or something else), I can turn each phase into ready-to-paste agent prompts with acceptance criteria.
