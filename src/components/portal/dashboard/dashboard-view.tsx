@@ -46,6 +46,7 @@ import {
 } from "@/lib/format";
 import { ChannelIcon } from "../common/channel-icon";
 import { StatusBadge } from "../common/status-badge";
+import { CountUp } from "../common/count-up";
 import {
   Bar,
   BarChart,
@@ -211,9 +212,23 @@ export function DashboardView() {
                         </span>
                       </div>
                       <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                        <span className={`mr-1.5 font-medium ${meta.color}`}>{meta.label}</span>
-                        {c.subject ? `${c.subject} — ` : ""}
-                        {c.bodyText}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex min-w-0 items-baseline">
+                              <span className={`mr-1.5 shrink-0 font-medium ${meta.color}`}>{meta.label}</span>
+                              <span className="truncate">
+                                {c.subject ? `${c.subject} — ` : ""}
+                                {c.bodyText}
+                              </span>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-md">
+                            <span className="block whitespace-pre-wrap text-xs">
+                              {c.subject ? `${c.subject} — ` : ""}
+                              {c.bodyText}
+                            </span>
+                          </TooltipContent>
+                        </Tooltip>
                       </p>
                     </div>
                   </motion.li>
@@ -247,6 +262,8 @@ export function DashboardView() {
                     tickLine={false}
                     axisLine={false}
                     width={32}
+                    allowDecimals={false}
+                    interval={0}
                   />
                   <RTooltip
                     cursor={{ fill: "var(--muted)", opacity: 0.3 }}
@@ -409,22 +426,25 @@ function KpiCard({
   return (
     <button
       onClick={onClick}
-      className="group rounded-lg border border-border bg-card p-3 text-left transition-all hover:border-primary/40 hover:shadow-sm surface-highlight"
+      className="group relative overflow-hidden rounded-lg border border-border bg-card p-3 text-left transition-all duration-200 hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 surface-highlight"
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+      <div className="relative flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             {label}
           </p>
-          <p className="mt-1 font-mono text-2xl font-semibold tabular">{value}</p>
+          <p className="mt-1 font-mono text-2xl font-semibold tabular">
+            <CountUp value={value} />
+          </p>
         </div>
         <span
-          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${toneRing[tone]}`}
+          className={`relative flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${toneRing[tone]}`}
         >
           <Icon className="h-3.5 w-3.5" />
         </span>
       </div>
-      <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>
+      <p className="relative mt-1 text-[11px] text-muted-foreground">{hint}</p>
     </button>
   );
 }

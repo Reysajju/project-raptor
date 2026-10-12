@@ -258,6 +258,19 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
         <Button
           variant="ghost"
           size="icon"
+          className="hidden h-8 w-8 sm:flex"
+          aria-label="Keyboard shortcuts"
+          title="Keyboard shortcuts (?)"
+          onClick={() => {
+            // Dispatch ? to toggle the shortcut overlay
+            window.dispatchEvent(new KeyboardEvent("keydown", { key: "?" }));
+          }}
+        >
+          <span className="font-mono text-xs text-muted-foreground">?</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
           className="h-8 w-8"
           onClick={() => nav.setCommandOpen(true)}
           aria-label="Search"

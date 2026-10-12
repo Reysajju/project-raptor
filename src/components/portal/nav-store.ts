@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 
 export type ViewKey =
   | "dashboard"
@@ -43,59 +44,83 @@ export interface NavState {
   goBack: () => void;
 }
 
-export const useNav = create<NavState>((set, get) => ({
-  view: "dashboard",
-  clientId: null,
-  clientTab: "timeline",
-  inboxFilter: "all",
-  projectId: null,
-  settingsTab: "integrations",
-  commandOpen: false,
-  trail: [{ label: "Dashboard" }],
+export const useNav = create<NavState>()(
+  persist(
+    (set, get) => ({
+      view: "dashboard",
+      clientId: null,
+      clientTab: "timeline",
+      inboxFilter: "all",
+      projectId: null,
+      settingsTab: "integrations",
+      commandOpen: false,
+      trail: [{ label: "Dashboard" }],
 
-  setView: (view) =>
-    set({
-      view,
-      trail:
-        view === "dashboard"
-          ? [{ label: "Dashboard" }]
-          : [{ label: titleFor(view) }],
-      clientId: view === "client" ? get().clientId : null,
+      setView: (view) =>
+        set({
+          view,
+          trail:
+            view === "dashboard"
+              ? [{ label: "Dashboard" }]
+              : [{ label: titleFor(view) }],
+          clientId: view === "client" ? get().clientId : null,
+        }),
+
+      openClient: (clientId, tab = "timeline") =>
+        set({
+          view: "client",
+          clientId,
+          clientTab: tab,
+          trail: [
+            { label: "Clients", view: "clients" },
+            { label: "Client", clientId },
+          ],
+        }),
+
+      setClientTab: (tab) => set({ clientTab: tab }),
+
+      setInboxFilter: (f) => set({ inboxFilter: f }),
+
+      openProject: (projectId) =>
+        set({ projectId, view: "projects", trail: [{ label: "Projects", view: "projects" }] }),
+
+      setSettingsTab: (tab) => set({ settingsTab: tab }),
+
+      setCommandOpen: (open) => set({ commandOpen: open }),
+
+      setTrail: (trail) => set({ trail }),
+
+      goBack: () => {
+        const cur = get().view
+        if (cur === "client") {
+          set({ view: "clients", clientId: null, trail: [{ label: "Clients" }] })
+        } else {
+          set({ view: "dashboard", trail: [{ label: "Dashboard" }] })
+        }
+      },
     }),
-
-  openClient: (clientId, tab = "timeline") =>
-    set({
-      view: "client",
-      clientId,
-      clientTab: tab,
-      trail: [
-        { label: "Clients", view: "clients" },
-        { label: "Client", clientId },
-      ],
-    }),
-
-  setClientTab: (tab) => set({ clientTab: tab }),
-
-  setInboxFilter: (f) => set({ inboxFilter: f }),
-
-  openProject: (projectId) =>
-    set({ projectId, view: "projects", trail: [{ label: "Projects", view: "projects" }] }),
-
-  setSettingsTab: (tab) => set({ settingsTab: tab }),
-
-  setCommandOpen: (open) => set({ commandOpen: open }),
-
-  setTrail: (trail) => set({ trail }),
-
-  goBack: () => {
-    const cur = get().view
-    if (cur === "client") {
-      set({ view: "clients", clientId: null, trail: [{ label: "Clients" }] })
-    } else {
-      set({ view: "dashboard", trail: [{ label: "Dashboard" }] })
+    {
+      name: "portal:nav",
+      storage: createJSONStorage(() => (typeof window !== "undefined" ? localStorage : undefined as unknown as Storage)),
+      // Only persist user preferences — NOT view/clientId/trail (which depend
+      // on live data and could point to a stale/missing client on reload).
+      partialize: (s) => ({
+        inboxFilter: s.inboxFilter,
+        settingsTab: s.settingsTab,
+        clientTab: s.clientTab,
+      }),
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<NavState>;
+        return {
+          ...current,
+          inboxFilter: p.inboxFilter ?? current.inboxFilter,
+          settingsTab: p.settingsTab ?? current.settingsTab,
+          clientTab: p.clientTab ?? current.clientTab,
+        };
+      },
     }
-  },
-}))
+  )
+)
 
 function titleFor(v: ViewKey): string {
   switch (v) {

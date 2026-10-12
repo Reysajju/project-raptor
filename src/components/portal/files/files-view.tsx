@@ -25,12 +25,14 @@ import {
   ChevronDown,
   HardDrive,
   CloudUpload,
+  Download,
 } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { useQueryState } from "@/components/portal/query-hooks";
 import { useNav } from "@/components/portal/nav-store";
 import { formatBytes } from "@/lib/format";
+import { exportToCsv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
 import type {
   FilesResponse,
@@ -110,6 +112,28 @@ export function FilesView() {
   const totalBytes = data?.totalBytes ?? 0;
   const usedMB = totalBytes / (1024 * 1024);
   const usagePct = Math.min(100, (totalBytes / STORAGE_CAP_BYTES) * 100);
+
+  const handleExport = () => {
+    if (filtered.length === 0) {
+      toast.error("No files to export");
+      return;
+    }
+    exportToCsv(
+      `files-${new Date().toISOString().slice(0, 10)}`,
+      ["File name", "Folder", "Client", "Project", "Version", "Size (bytes)", "Shared with client", "Uploaded by", "Created"],
+      filtered.map((f) => [
+        f.fileName,
+        f.folder || "General",
+        f.client?.name || "",
+        f.project?.title || "",
+        `v${f.version}`,
+        f.sizeBytes,
+        f.sharedWithClient ? "Yes" : "No",
+        f.uploader?.fullName || "",
+        new Date(f.createdAt).toISOString(),
+      ])
+    );
+  };
   const usageTone =
     usagePct > 90 ? "rose" : usagePct > 70 ? "amber" : "emerald";
   const usageBarClass =
@@ -199,6 +223,16 @@ export function FilesView() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleExport}
+            disabled={!data || filtered.length === 0}
+            title="Export filtered files to CSV"
+          >
+            <Download className="h-3.5 w-3.5" /> Export
+          </Button>
           <Button variant="outline" size="sm" onClick={() => nav.setView("clients")}>
             Browse clients
           </Button>

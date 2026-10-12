@@ -303,3 +303,78 @@ Unresolved issues / next-phase priorities:
 - Future feature ideas: saved views/filters persistence (localStorage),
   keyboard shortcut help overlay, CSV export for clients/files, per-client
   brand color theming in the portal preview, real-time updates via WebSocket.
+
+---
+Task ID: cron-round-3 (CSV export + shortcuts + persistence + styling polish)
+Agent: lead (orchestrator) — cron-triggered webDevReview
+Task: Assess project status, QA via agent-browser, fix bugs, add new features
+(CSV export, keyboard shortcuts, saved views), improve styling.
+
+Work Log:
+- QA: all 9 views render without errors. Lint clean (0 errors, 0 warnings).
+- Verified notifications popover is NOT obscured by client-detail sidebar
+  (the round-2 concern was a false alarm / transient).
+- Fixed a latent bug in ShortcutHelpOverlay: the keydown handler threw when
+  e.target was `window` (no getAttribute method), preventing the dialog from
+  opening. Rewrote isTyping check to use tagName + isContentEditable only.
+- NEW FEATURE: CSV export for clients directory + files vault.
+  - Created shared @/lib/csv.ts → exportToCsv(filename, headers, rows).
+    RFC 4180 compliant escaping (commas, quotes, newlines), BOM for Excel
+    UTF-8, toast confirmation.
+  - Clients view: "Export" button exports filtered clients (name, company,
+    status, tags, owner, open items, active projects, files, updated).
+  - Files view: "Export" button exports filtered files (name, folder, client,
+    project, version, size, shared flag, uploader, created).
+- NEW FEATURE: Keyboard shortcuts help overlay.
+  - New ShortcutHelpOverlay component opens on `?` key (when not typing).
+    Shows grouped shortcuts: Global (⌘K search, ? help, G+letter nav),
+    Inbox (J/K/E/Z/A/R), Composer (⌘+Enter send).
+  - New use-goto-shortcuts hook: press G then D/C/I/P/F/A/S within 700ms to
+    jump to that view. GitHub/Linear-style two-key nav.
+  - `?` button added to the topbar next to the search button for discoverability.
+  - New Kbd UI component (src/components/ui/kbd.tsx) for styled key indicators.
+- NEW FEATURE: Saved views / filter persistence (localStorage).
+  - Added Zustand persist middleware to the nav-store. Only user preferences
+    are persisted (inboxFilter, settingsTab, clientTab) — NOT view/clientId/
+    trail (which depend on live data).
+  - Clients view: search, filter, and sort now persist via usePersistentState
+    hook (src/lib/use-persistent-state.ts). Verified: set "Prospect" filter,
+    reload page, filter is still active.
+- Styling improvements:
+  - CountUp component (src/components/portal/common/count-up.tsx): animated
+    count-up numbers on dashboard KPI cards using requestAnimationFrame +
+    ease-out cubic. Respects prefers-reduced-motion (jumps to final value).
+  - KPI card hover micro-animations: lift (-translate-y-0.5), stronger shadow,
+    gradient overlay (from-primary/5 to-transparent) fades in on hover.
+  - Chart Y-axis fix: allowDecimals=false + interval=0 for clean integer ticks.
+  - Activity feed tooltips: truncated preview lines now expand in a Tooltip
+    on hover (max-w-md, whitespace-pre-wrap).
+  - EmptyState component (src/components/portal/common/empty-state.tsx) with
+    inline SVG illustrations (inbox, clients, files, approvals, search,
+    projects, forms, audit, generic) — ready to wire into empty list states.
+
+Stage Summary:
+- ALL 9 views still render without errors after changes (verified).
+- Lint: 0 errors, 0 warnings.
+- 5 new features: CSV export (clients + files), keyboard shortcut help (?),
+  G+letter navigation, persisted filters/tabs (localStorage), count-up
+  animation on KPIs.
+- 7 new files: csv.ts, use-persistent-state.ts, count-up.tsx,
+  shortcut-help.tsx, use-goto-shortcuts.ts, empty-state.tsx, kbd.tsx.
+- VLM dashboard rating: 8.5/10 ("high-fidelity, professional dark-mode
+  dashboard with excellent information density").
+- Filter persistence verified end-to-end: set Prospect filter → reload →
+  filter still active.
+
+Unresolved issues / next-phase priorities:
+- The EmptyState component is built but not yet wired into the actual empty
+  states of the inbox/clients/files views (they still use inline divs). Could
+  be swapped in for a more consistent illustration-driven empty experience.
+- The ? shortcut relies on a synthetic KeyboardEvent dispatch from the
+  topbar button — works in Chrome but could add a direct onClick to the
+  ShortcutHelpOverlay via a store for robustness.
+- Future feature ideas: real-time updates via WebSocket (mini-service), bulk
+  client import from CSV (reverse of the export), per-client brand color
+  theming applied to the portal preview, AI-suggested next actions on the
+  dashboard, a "focus mode" that hides the sidebar for distraction-free
+  inbox triage.

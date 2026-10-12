@@ -52,7 +52,10 @@ import {
   FolderClosed,
   KanbanSquare,
   RefreshCw,
+  Download,
 } from "lucide-react";
+import { exportToCsv } from "@/lib/csv";
+import { usePersistentState } from "@/lib/use-persistent-state";
 
 interface TeamMember {
   id: string;
@@ -122,9 +125,9 @@ export function ClientsView() {
   );
   const clients = data?.clients ?? [];
 
-  const [search, setSearch] = React.useState("");
-  const [filter, setFilter] = React.useState<(typeof FILTERS)[number]["key"]>("all");
-  const [sort, setSort] = React.useState<SortKey>("updatedAt");
+  const [search, setSearch] = usePersistentState<string>("portal:clients:search", "");
+  const [filter, setFilter] = usePersistentState<(typeof FILTERS)[number]["key"]>("portal:clients:filter", "all");
+  const [sort, setSort] = usePersistentState<SortKey>("portal:clients:sort", "updatedAt");
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
 
   const filtered = React.useMemo(() => {
@@ -141,6 +144,28 @@ export function ClientsView() {
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
   }, [clients, search, filter, sort]);
+
+  const handleExport = () => {
+    if (filtered.length === 0) {
+      toast.error("No clients to export");
+      return;
+    }
+    exportToCsv(
+      `clients-${new Date().toISOString().slice(0, 10)}`,
+      ["Name", "Company", "Status", "Tags", "Owner", "Open items", "Active projects", "Files", "Updated"],
+      filtered.map((c) => [
+        c.name,
+        c.company || "",
+        c.status,
+        c.tags.join("; "),
+        c.owner?.fullName || "",
+        c.openItems,
+        c.activeProjects,
+        c.fileCount,
+        new Date(c.updatedAt).toISOString(),
+      ])
+    );
+  };
 
   const toggleAll = () => {
     setSelected((prev) => {
@@ -184,6 +209,16 @@ export function ClientsView() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleExport}
+            disabled={isLoading || filtered.length === 0}
+            title="Export filtered clients to CSV"
+          >
+            <Download className="h-3.5 w-3.5" /> Export
+          </Button>
           <NewClientSheet />
         </div>
       </div>

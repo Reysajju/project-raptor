@@ -6,6 +6,8 @@ import { QueryProvider } from "@/components/portal/query-provider";
 import { useCurrentUser } from "@/components/portal/user-store";
 import { useNav } from "@/components/portal/nav-store";
 import { CommandPalette } from "@/components/portal/command/command-palette";
+import { ShortcutHelpOverlay } from "@/components/portal/common/shortcut-help";
+import { useNavGotoShortcuts } from "@/components/portal/common/use-goto-shortcuts";
 import { DashboardView } from "@/components/portal/dashboard/dashboard-view";
 import { ClientsView } from "@/components/portal/clients/clients-view";
 import { ClientDetail } from "@/components/portal/clients/client-detail";
@@ -57,12 +59,19 @@ export default function Page() {
   return (
     <QueryProvider>
       <BootstrapUser />
+      <GotoShortcutsBootstrap />
       <AppShell>
         <ViewRouterWithBoundary />
       </AppShell>
       <CommandPalette />
+      <ShortcutHelpOverlay />
     </QueryProvider>
   );
+}
+
+function GotoShortcutsBootstrap() {
+  useNavGotoShortcuts();
+  return null;
 }
 
 function BootstrapUser() {
