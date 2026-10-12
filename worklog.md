@@ -453,3 +453,81 @@ Unresolved issues / next-phase priorities:
 - Bulk actions in the clients table (the checkboxes exist but the bulk action
   bar only shows count, no actual actions wired).
 - The focus mode could also dim/hide the topbar breadcrumbs for full immersion.
+
+---
+Task ID: cron-round-5 (accent theming + timeline polish + bulk actions + health score + heatmap)
+Agent: lead (orchestrator) — cron-triggered webDevReview
+Task: Assess project status, QA via agent-browser, fix bugs, add new features
+(bulk actions, health score, activity heatmap), apply deferred styling work
+(per-client accent theming, timeline hover, richer call card).
+
+Work Log:
+- QA: all 9 views render without errors. Lint clean. Round 2/3/4 features
+  (AI summary, command palette, CSV export/import, next-actions, focus mode)
+  all still working.
+- STYLING: Per-client accent color theming on client-detail header.
+  - New shared @/lib/accent.ts → ACCENT_BADGE, ACCENT_DOT, accentGradient(),
+    resolveAccent(), ACCENT_COLORS.
+  - Client-detail Header now has a gradient background strip tinted with the
+    client's accentColor (violet/emerald/sky/amber/rose). VLM-verified: "dark
+    teal gradient header strip behind Sofia Rinaldi" (sky accent).
+  - Health strip cards: added hover lift (-translate-y-0.5), shadow, icon
+    color transition on hover, tabular numerals.
+- STYLING: Timeline item hover transitions.
+  - Timeline bubbles now lift (-translate-y-0.5) and gain a shadow on hover
+    via group/timeline + group-hover/timeline:shadow-md.
+- STYLING: Richer call card UI.
+  - Direction badge (Inbound/Outbound call with Phone icon).
+  - Bigger play button (h-8 w-8) with active:scale-95.
+  - Animated waveform (40 bars with staggered animationDelay when playing).
+  - Time display showing current/total duration.
+  - AI summary card with accent-tinted border + bg + Sparkles icon label.
+- NEW FEATURE: Bulk actions in clients table.
+  - BulkActionBar component replaces the count-only bar. Shows: count badge,
+    Export selected (CSV), Tag (popover with input + Enter to add),
+    Assign owner (popover with team list), Archive (confirm dialog, soft-delete
+    via DELETE /clients/[id]). Each action runs in parallel across selected
+    clients then invalidates clients+dashboard queries.
+  - VLM-verified: "count badge, Export, Tag, Assign, Archive, Clear buttons".
+- NEW FEATURE: Client health score + sentiment indicator.
+  - GET /api/portal/clients/[id]/health → computes 0-100 score from:
+    recency (30), open items (20), pending approvals (15), active projects
+    (20), overdue tasks (15). Returns sentiment label (healthy/needs
+    attention/at risk/critical) + tone + contributing factors.
+  - HealthScoreWidget: circular SVG progress ring with animated stroke,
+    sentiment badge, factor breakdown with per-factor scores, factor details.
+  - Wired into the client-detail right sidebar below the owner card.
+  - VLM-verified: "HEALTH SCORE widget with circular progress ring (75)".
+- NEW FEATURE: Activity heatmap on dashboard (last 90 days).
+  - GET /api/portal/dashboard/heatmap → per-day communication counts grouped
+    by channel for the last 90 days. Returns days[], maxCount, totalComms,
+    activeDays.
+  - ActivityHeatmapWidget: GitHub-style contribution grid (13 weeks × 7 days),
+    5 intensity levels (muted → primary/20 → /40 → /60 → /90), month labels,
+    hover tooltips with per-day breakdown by channel, legend.
+  - VLM-verified: "grid of small squares, 16 communications, 3 active days,
+    purple squares for activity, legend from Less to More".
+
+Stage Summary:
+- ALL 9 views render without errors after all changes (verified).
+- Lint: 0 errors, 0 warnings.
+- 3 new features: bulk client actions (export/tag/assign/archive), client
+  health score widget with circular ring, dashboard activity heatmap.
+- 3 styling improvements: per-client accent gradient header, timeline item
+  hover lift+shadow, richer call card with animated waveform + direction badge.
+- 5 new files: accent.ts, health-score-widget.tsx, activity-heatmap-widget.tsx,
+  clients/[id]/health/route.ts, dashboard/heatmap/route.ts.
+- VLM-verified: accent gradient header, health score ring (75), heatmap grid
+  with purple activity squares, bulk action bar with all 5 buttons.
+
+Unresolved issues / next-phase priorities:
+- The accent color theming is applied to the header but not yet to the
+  timeline bubbles or the portal preview (could extend accentGradient usage).
+- The health score formula is a simple weighted sum — could add trend
+  analysis (improving/declining vs last week) for a richer indicator.
+- The heatmap could be made interactive (click a day to filter the activity
+  feed to that date).
+- Future feature ideas: real-time WebSocket updates, client portal magic-link
+  flow simulation, in-app onboarding checklist for new team members, per-client
+  SLA tracking with breach alerts, a "relationship timeline" visualization
+  showing the full history of a client relationship as a horizontal scroll.

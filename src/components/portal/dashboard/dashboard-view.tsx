@@ -48,6 +48,7 @@ import { ChannelIcon } from "../common/channel-icon";
 import { StatusBadge } from "../common/status-badge";
 import { CountUp } from "../common/count-up";
 import { NextActionsWidget } from "./next-actions-widget";
+import { ActivityHeatmapWidget } from "./activity-heatmap-widget";
 import {
   Bar,
   BarChart,
@@ -401,6 +402,9 @@ export function DashboardView() {
 
       {/* Suggested next actions */}
       <NextActionsWidget />
+
+      {/* Activity heatmap */}
+      <ActivityHeatmapWidget />
     </div>
   );
 }

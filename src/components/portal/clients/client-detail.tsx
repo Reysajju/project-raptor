@@ -11,6 +11,8 @@ import { StatusBadge } from "@/components/portal/common/status-badge";
 import { ChannelIcon } from "@/components/portal/common/channel-icon";
 import { AiSummaryDialog, AiDraftButton } from "@/components/portal/common/ai-assistant";
 import { PortalPreviewButton } from "@/components/portal/common/portal-preview";
+import { HealthScoreWidget } from "@/components/portal/common/health-score-widget";
+import { accentGradient } from "@/lib/accent";
 import { cn } from "@/lib/utils";
 import {
   channelMeta,
@@ -87,6 +89,7 @@ import {
   Paperclip,
   Play,
   Pause,
+  Phone,
   Send,
   StickyNote,
   Globe,
@@ -532,7 +535,11 @@ function Header({
   onLinkIncoming: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div
+      className="relative overflow-hidden rounded-lg border border-border bg-card surface-highlight"
+      style={{ background: accentGradient(client.accentColor) }}
+    >
+      <div className="relative flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
       <div className="flex items-center gap-3 min-w-0">
         <Button
           variant="ghost"
@@ -543,7 +550,7 @@ function Header({
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <Avatar className="h-10 w-10 shrink-0">
+        <Avatar className="h-10 w-10 shrink-0 ring-2 ring-background">
           <AvatarFallback className={cn("text-sm font-medium", accentClass)}>
             {initials(client.name)}
           </AvatarFallback>
@@ -597,6 +604,7 @@ function Header({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      </div>
     </div>
   );
 }
@@ -639,13 +647,13 @@ function HealthStrip({ health }: { health: ClientHealth }) {
       {items.map((it) => (
         <div
           key={it.label}
-          className="rounded-lg border border-border bg-card p-3 surface-highlight"
+          className="group rounded-lg border border-border bg-card p-3 surface-highlight transition-all duration-200 hover:border-primary/30 hover:shadow-sm hover:-translate-y-0.5"
         >
           <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            <span className="text-muted-foreground/80">{it.icon}</span>
+            <span className="text-muted-foreground/80 transition-colors group-hover:text-primary">{it.icon}</span>
             {it.label}
           </div>
-          <p className="mt-1 truncate text-sm font-medium">{it.value}</p>
+          <p className="mt-1 truncate font-mono text-sm font-medium tabular">{it.value}</p>
           {it.sub && <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{it.sub}</p>}
         </div>
       ))}
@@ -1030,8 +1038,8 @@ function TimelineItem({ comm, reduce }: { comm: Communication; reduce: boolean }
       transition={{ duration: 0.18 }}
       className={cn("flex w-full", align)}
     >
-      <div className={cn("max-w-[88%] sm:max-w-[78%]")}>
-        <div className={cn("rounded-lg p-3 surface-highlight", bubbleClass)}>
+      <div className={cn("max-w-[88%] sm:max-w-[78%] group/timeline transition-transform duration-150 hover:-translate-y-0.5")}>
+        <div className={cn("rounded-lg p-3 surface-highlight transition-shadow duration-150 group-hover/timeline:shadow-md", bubbleClass)}>
           {/* Meta header */}
           <div className="mb-1.5 flex items-center gap-2">
             <ChannelIcon channel={channel} />
@@ -1132,51 +1140,63 @@ function EmailBody({ html, text }: { html: string; text: string }) {
 
 function CallBody({ comm }: { comm: Communication }) {
   const [playing, setPlaying] = React.useState(false);
-  const [tab, setTab] = React.useState<"summary" | "transcript">("summary");
   const [showTranscript, setShowTranscript] = React.useState(false);
 
+  const directionLabel = comm.direction === "inbound" ? "Inbound call" : "Outbound call";
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
+      {/* Direction + duration badge row */}
+      <div className="flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-medium text-accent-foreground">
+          <Phone className="h-2.5 w-2.5" />
+          {directionLabel}
+        </span>
+        {comm.durationSec ? (
+          <span className="font-mono text-[11px] tabular text-muted-foreground">
+            {formatDuration(comm.durationSec)}
+          </span>
+        ) : null}
+      </div>
+
       {/* Player row */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5 rounded-md border border-border bg-muted/20 p-2">
         <button
           onClick={() => setPlaying((p) => !p)}
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-accent-foreground transition-transform hover:scale-105"
-          aria-label={playing ? "Pause" : "Play"}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground transition-transform hover:scale-105 active:scale-95"
+          aria-label={playing ? "Pause" : "Play recording"}
         >
-          {playing ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+          {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 translate-x-px" />}
         </button>
         <div className="flex-1">
-          <div className="h-6 w-full overflow-hidden rounded bg-muted/60">
-            <div
-              className={cn(
-                "flex h-full items-center gap-0.5 px-1",
-                playing ? "animate-pulse" : ""
-              )}
-            >
-              {Array.from({ length: 32 }).map((_, i) => (
-                <span
-                  key={i}
-                  className="w-0.5 rounded-full bg-accent-foreground/70"
-                  style={{
-                    height: `${20 + Math.abs(Math.sin(i * 0.7)) * 80}%`,
-                    opacity: playing ? 1 : 0.5,
-                  }}
-                />
-              ))}
-            </div>
+          <div className="flex h-7 items-center gap-[2px]">
+            {Array.from({ length: 40 }).map((_, i) => (
+              <span
+                key={i}
+                className={cn(
+                  "w-0.5 shrink-0 rounded-full bg-accent-foreground/70 transition-opacity",
+                  playing && "animate-pulse"
+                )}
+                style={{
+                  height: `${15 + Math.abs(Math.sin(i * 0.6)) * 85}%`,
+                  opacity: playing ? 1 : 0.4,
+                  animationDelay: playing ? `${i * 30}ms` : undefined,
+                }}
+              />
+            ))}
           </div>
         </div>
-        <span className="font-mono text-[11px] tabular text-muted-foreground">
-          {formatDuration(comm.durationSec)}
+        <span className="shrink-0 font-mono text-[10px] tabular text-muted-foreground">
+          {playing ? "0:0" : "0:00"} / {formatDuration(comm.durationSec)}
         </span>
       </div>
 
       {/* Summary */}
       {comm.summary && (
-        <div className="rounded-md border border-border bg-muted/30 p-2.5">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Summary
+        <div className="rounded-md border border-accent/20 bg-accent/5 p-2.5">
+          <p className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-accent-foreground">
+            <Sparkles className="h-2.5 w-2.5" />
+            AI summary
           </p>
           <p className="mt-1 text-sm leading-relaxed">{comm.summary}</p>
         </div>
@@ -2190,6 +2210,9 @@ function Sidebar({
           <p className="mt-1.5 text-xs text-muted-foreground">Unassigned</p>
         )}
       </Card>
+
+      {/* Health score */}
+      <HealthScoreWidget clientId={client.id} />
 
       {/* Contacts */}
       <Card className="p-4">

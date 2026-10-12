@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useNav } from "@/components/portal/nav-store";
 import { useCurrentUser } from "@/components/portal/user-store";
-import { useQueryState, apiPost } from "@/components/portal/query-hooks";
+import { useQueryState, apiPost, apiPatch } from "@/components/portal/query-hooks";
 import { StatusBadge } from "@/components/portal/common/status-badge";
 import { cn } from "@/lib/utils";
 import { initials, relativeTime } from "@/lib/format";
@@ -37,6 +37,18 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -53,6 +65,8 @@ import {
   RefreshCw,
   Download,
   Upload,
+  Users,
+  Trash2,
 } from "lucide-react";
 import { exportToCsv } from "@/lib/csv";
 import { usePersistentState } from "@/lib/use-persistent-state";
@@ -253,19 +267,15 @@ export function ClientsView() {
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs">
-          <span className="font-medium">
-            {selected.size} selected
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={() => setSelected(new Set())}
-          >
-            Clear
-          </Button>
-        </div>
+        <BulkActionBar
+          selectedCount={selected.size}
+          selectedIds={Array.from(selected)}
+          clients={filtered.filter((c) => selected.has(c.id))}
+          onClear={() => setSelected(new Set())}
+          onDone={() => {
+            setSelected(new Set());
+          }}
+        />
       )}
 
       {/* Loading skeleton */}
@@ -593,6 +603,202 @@ function ImportClientsButton() {
       </Button>
       <ImportClientsDialog open={open} onOpenChange={setOpen} />
     </>
+  );
+}
+
+interface ClientListItem {
+  id: string;
+  name: string;
+  company?: string | null;
+  status: string;
+  tags: string[];
+  ownerId?: string | null;
+  owner?: { fullName: string } | null;
+}
+
+function BulkActionBar({
+  selectedCount,
+  selectedIds,
+  clients,
+  onClear,
+  onDone,
+}: {
+  selectedCount: number;
+  selectedIds: string[];
+  clients: ClientListItem[];
+  onClear: () => void;
+  onDone: () => void;
+}) {
+  const qc = useQueryClient();
+  const { data: teamData } = useQueryState<{ team: { id: string; fullName: string }[] }>("team", "/api/portal/team");
+  const team = teamData?.team ?? [];
+  const [tagOpen, setTagOpen] = React.useState(false);
+  const [assignOpen, setAssignOpen] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [tagValue, setTagValue] = React.useState("");
+
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["clients"] });
+    qc.invalidateQueries({ queryKey: ["dashboard"] });
+  };
+
+  const exportSelected = () => {
+    exportToCsv(
+      `clients-selected-${new Date().toISOString().slice(0, 10)}`,
+      ["Name", "Company", "Status", "Tags", "Owner", "Open items", "Active projects", "Files", "Updated"],
+      clients.map((c) => [
+        c.name,
+        c.company || "",
+        c.status,
+        c.tags.join("; "),
+        c.owner?.fullName || "",
+        (c as { openItems?: number }).openItems ?? 0,
+        (c as { activeProjects?: number }).activeProjects ?? 0,
+        (c as { fileCount?: number }).fileCount ?? 0,
+        (c as { updatedAt?: string }).updatedAt ?? "",
+      ])
+    );
+  };
+
+  const assignOwner = async (ownerId: string | null) => {
+    setAssignOpen(false);
+    try {
+      await Promise.all(selectedIds.map((id) => apiPatch(`/api/portal/clients/${id}`, { ownerId })));
+      toast.success(`Assigned ${selectedIds.length} client${selectedIds.length === 1 ? "" : "s"}`);
+      refresh();
+    } catch (err) {
+      toast.error("Bulk assign failed", { description: (err as Error).message });
+    }
+  };
+
+  const addTag = async () => {
+    const tag = tagValue.trim();
+    if (!tag) return;
+    setTagOpen(false);
+    try {
+      await Promise.all(
+        selectedIds.map(async (id) => {
+          const client = clients.find((c) => c.id === id);
+          const existing = client?.tags ?? [];
+          if (!existing.includes(tag)) {
+            await apiPatch(`/api/portal/clients/${id}`, { tags: [...existing, tag] });
+          }
+        })
+      );
+      toast.success(`Tagged ${selectedIds.length} client${selectedIds.length === 1 ? "" : "s"} with "${tag}"`);
+      setTagValue("");
+      refresh();
+    } catch (err) {
+      toast.error("Bulk tag failed", { description: (err as Error).message });
+    }
+  };
+
+  const deleteSelected = async () => {
+    setDeleteOpen(false);
+    try {
+      // Soft-delete via PATCH (the DELETE endpoint also soft-deletes; use PATCH to avoid accidental hard delete)
+      await Promise.all(
+        selectedIds.map((id) =>
+          fetch(`/api/portal/clients/${id}`, { method: "DELETE" }).then((r) => r.json())
+        )
+      );
+      toast.success(`Archived ${selectedIds.length} client${selectedIds.length === 1 ? "" : "s"}`);
+      onDone();
+      refresh();
+    } catch (err) {
+      toast.error("Bulk archive failed", { description: (err as Error).message });
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-xs">
+      <div className="flex items-center gap-2">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent font-mono text-[10px] font-semibold text-accent-foreground tabular">
+          {selectedCount}
+        </span>
+        <span className="font-medium">selected</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" onClick={exportSelected}>
+          <Download className="h-3 w-3" /> Export
+        </Button>
+
+        {/* Tag popover */}
+        <Popover open={tagOpen} onOpenChange={setTagOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
+              <Plus className="h-3 w-3" /> Tag
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-3" align="end">
+            <Label className="text-[11px] text-muted-foreground">Add tag to {selectedCount} clients</Label>
+            <Input
+              autoFocus
+              value={tagValue}
+              onChange={(e) => setTagValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") addTag(); }}
+              placeholder="e.g. vip, q4-renewal"
+              className="mt-1.5 h-8 text-xs"
+            />
+            <div className="mt-2 flex justify-end gap-1.5">
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setTagOpen(false)}>Cancel</Button>
+              <Button size="sm" className="h-7 text-xs" onClick={addTag} disabled={!tagValue.trim()}>Add tag</Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Assign owner popover */}
+        <Popover open={assignOpen} onOpenChange={setAssignOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
+              <Users className="h-3 w-3" /> Assign
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-2" align="end">
+            <p className="px-1 py-1 text-[11px] text-muted-foreground">Assign owner to {selectedCount} clients</p>
+            <div className="max-h-48 overflow-y-auto scrollbar-thin">
+              {team.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => assignOwner(m.id)}
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-muted"
+                >
+                  <Avatar className="h-5 w-5">
+                    <AvatarFallback className="bg-muted text-[9px]">{initials(m.fullName)}</AvatarFallback>
+                  </Avatar>
+                  {m.fullName}
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs text-rose-foreground hover:bg-rose/20" onClick={() => setDeleteOpen(true)}>
+          <Trash2 className="h-3 w-3" /> Archive
+        </Button>
+
+        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onClear}>
+          Clear
+        </Button>
+      </div>
+
+      {/* Delete confirm dialog */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="max-w-sm" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle className="text-base">Archive {selectedCount} client{selectedCount === 1 ? "" : "s"}?</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            Selected clients will be soft-archived (hidden from the directory).
+            This won't delete their communications, files, or projects.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+            <Button variant="destructive" size="sm" onClick={deleteSelected}>Archive</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
