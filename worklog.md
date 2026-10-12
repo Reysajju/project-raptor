@@ -229,3 +229,77 @@ Stage Summary:
 
 Project status: READY. The 15-minute recurring webDevReview cron will
 continue QA + feature expansion autonomously.
+
+---
+Task ID: cron-round-2 (QA + AI features + portal preview + notifications)
+Agent: lead (orchestrator) — cron-triggered webDevReview
+Task: Assess project status, QA via agent-browser, fix bugs, add new features
+(AI assistant, client portal preview, notifications panel), improve styling.
+
+Work Log:
+- Read worklog to understand prior state (project was "READY" with 9 views).
+- QA pass via agent-browser: all 9 views render without errors. Lint clean.
+- Fixed accessibility: added `aria-describedby={undefined}` to DialogContent
+  and SheetContent defaults (shadcn-recommended) to silence Radix dev warnings
+  about missing Description. Moved DialogTitle/Description inside
+  CommandDialog's DialogContent with default values.
+- NEW FEATURE: AI thread summary (LLM skill, server-side).
+  - POST /api/portal/ai/summarize → fetches last 30 comms, builds context,
+    calls z-ai-web-dev-sdk chat.completions.create with a structured
+    "key topics / open items / next steps / tone" system prompt.
+  - POST /api/portal/ai/draft-reply → uses thread context + optional
+    instruction + channel to draft a reply (email/portal/sms-aware).
+  - Both verified: summary returns structured 150-word summary; draft returns
+    a polished, context-aware reply ready to apply to the composer.
+- NEW FEATURE: AI assistant UI components (src/components/portal/common/ai-assistant.tsx).
+  - AiSummaryDialog: opens on "Summarize" button click, auto-generates on open,
+    shows loading spinner, formatted summary, regenerate button.
+  - AiDraftButton: opens a dialog with optional instruction field, generates
+    draft, copy/apply-to-composer actions. Wired into both the client-detail
+    timeline composer AND the inbox reply composer.
+  - AiSummaryButton: wired into the client-detail timeline toolbar AND the
+    inbox conversation panel header.
+- NEW FEATURE: Client portal preview mode (src/components/portal/common/portal-preview.tsx).
+  - "Portal preview" button in the client-detail header opens a dialog showing
+    exactly what the client sees: welcome header, "Needs your attention" cards
+    (approvals/forms/messages counts), pending approvals with approve buttons,
+    project progress ribbon with milestone chips, message thread (client-facing
+    bubbles), shared files list. Mobile-first, friendly aesthetic.
+  - VLM-verified: all elements present and correctly structured.
+- NEW FEATURE: Notifications dropdown panel (src/components/portal/common/notifications-popover.tsx).
+  - Replaced the simple bell button in the topbar with a Popover that shows
+    unread notifications (icon, title, body, timestamp, unread dot), a
+    "Mark all read" button (PATCHes /notifications-unread), click-to-navigate
+    (opens client or inbox unmatched view), and an "Open inbox" footer link.
+  - Count badge on the bell shows unread count (up to "9+").
+- Styling improvements:
+  - Dialog/Sheet accessibility fixes (aria-describedby).
+  - Timeline toolbar with message count + AI summarize button.
+  - Composer now has an "AI draft" button next to the send button.
+  - Conversation panel header has an AI summarize button.
+  - Notifications popover with proper visual hierarchy.
+  - Portal preview dialog with gradient header, attention cards, progress
+    ribbons, message bubbles — a distinct visual language from the admin UI.
+
+Stage Summary:
+- ALL 9 views still render without errors after changes (verified).
+- Lint: 0 errors, 0 warnings.
+- 3 new features added: AI summary + draft, client portal preview,
+  notifications popover.
+- 4 new files: ai-assistant.tsx, portal-preview.tsx, notifications-popover.tsx,
+  2 new API routes (ai/summarize, ai/draft-reply).
+- AI features verified end-to-end: summary returns structured analysis, draft
+  returns applicable reply text, both in <10s response time.
+- Portal preview VLM-verified: all elements present.
+- Notifications popover VLM-verified: list + mark-all-read + timestamps.
+
+Unresolved issues / next-phase priorities:
+- The Radix dev warnings about Missing Description are silenced by the
+  aria-describedby={undefined} default but may still appear in some edge
+  cases (e.g., dynamically rendered dialogs). Non-blocking — dev-only.
+- The notifications popover can be partially obscured by the client-detail
+  right sidebar on narrow screens. Could add a higher z-index or a responsive
+  sidebar collapse. Minor styling polish.
+- Future feature ideas: saved views/filters persistence (localStorage),
+  keyboard shortcut help overlay, CSV export for clients/files, per-client
+  brand color theming in the portal preview, real-time updates via WebSocket.

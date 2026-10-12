@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { AiDraftButton } from "../common/ai-assistant";
 import type { Communication } from "./types";
 
 type ComposerTab = "note" | "portal" | "email" | "sms";
@@ -182,6 +183,8 @@ export function ReplyComposer({
             sending={send.isPending}
             placeholder="Internal note — not visible to the client…"
             sendLabel="Save note"
+            clientId={clientId}
+            channel="note"
           />
         </TabsContent>
 
@@ -194,6 +197,8 @@ export function ReplyComposer({
             sending={send.isPending}
             placeholder="Reply via the client portal — visible to the client…"
             sendLabel="Send to client"
+            clientId={clientId}
+            channel="portal"
           />
         </TabsContent>
 
@@ -237,6 +242,8 @@ function ComposerInput({
   sending,
   placeholder,
   sendLabel,
+  clientId,
+  channel,
 }: {
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   value: string;
@@ -245,6 +252,8 @@ function ComposerInput({
   sending: boolean;
   placeholder: string;
   sendLabel: string;
+  clientId: string;
+  channel: "note" | "portal";
 }) {
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -264,6 +273,11 @@ function ComposerInput({
         aria-label={placeholder}
       />
       <div className="flex items-center justify-end gap-2">
+        <AiDraftButton
+          clientId={clientId}
+          channel={channel}
+          onApply={onChange}
+        />
         <Button
           variant="ghost"
           size="sm"

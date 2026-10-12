@@ -37,6 +37,7 @@ import {
 import { useTheme } from "next-themes";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryState } from "./query-hooks";
+import { NotificationsPopover } from "./common/notifications-popover";
 
 interface NavItem {
   key: ViewKey;
@@ -263,18 +264,7 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
         >
           <Search className="h-4 w-4" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative h-8 w-8"
-          aria-label="Notifications"
-          onClick={() => nav.setView("inbox")}
-        >
-          <Bell className="h-4 w-4" />
-          {unread > 0 && (
-            <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-rose-foreground/90" />
-          )}
-        </Button>
+        <NotificationsPopover />
         <Button
           variant="ghost"
           size="icon"

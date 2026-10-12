@@ -9,6 +9,8 @@ import { useCurrentUser } from "@/components/portal/user-store";
 import { apiGet, apiPost, apiPatch } from "@/components/portal/query-hooks";
 import { StatusBadge } from "@/components/portal/common/status-badge";
 import { ChannelIcon } from "@/components/portal/common/channel-icon";
+import { AiSummaryDialog, AiDraftButton } from "@/components/portal/common/ai-assistant";
+import { PortalPreviewButton } from "@/components/portal/common/portal-preview";
 import { cn } from "@/lib/utils";
 import {
   channelMeta,
@@ -103,6 +105,7 @@ import {
   Plus,
   RefreshCw,
   AlertCircle,
+  Sparkles,
 } from "lucide-react";
 
 // ============================================================
@@ -562,6 +565,7 @@ function Header({
         </div>
       </div>
       <div className="flex items-center gap-2">
+        <PortalPreviewButton clientId={client.id} />
         <div className="hidden max-w-[280px] flex-wrap items-center gap-1 sm:flex">
           {client.tags.length === 0 ? (
             <span className="text-xs text-muted-foreground">No tags</span>
@@ -833,6 +837,17 @@ function TimelineTab({
 
   return (
     <Card className="flex flex-col p-0">
+      {/* Timeline toolbar */}
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 sm:px-4">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <MessageSquare className="h-3.5 w-3.5" />
+          <span>{ordered.length} message{ordered.length === 1 ? "" : "s"}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <AiSummaryButton clientId={clientId} />
+        </div>
+      </div>
+
       {/* Timeline stream */}
       <div className="max-h-[640px] min-h-[320px] flex-1 overflow-y-auto px-3 py-3 scrollbar-thin sm:px-4">
         {ordered.length === 0 ? (
@@ -915,6 +930,11 @@ function TimelineTab({
             className="min-h-[72px] resize-none"
           />
           <div className="flex flex-col items-end gap-1.5">
+            <AiDraftButton
+              clientId={clientId}
+              channel={channel}
+              onApply={(d) => setDraft(d)}
+            />
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -947,6 +967,24 @@ function TimelineTab({
         </div>
       </div>
     </Card>
+  );
+}
+
+function AiSummaryButton({ clientId }: { clientId: string }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-1.5 border-accent/40 text-accent-foreground hover:bg-accent/40"
+        onClick={() => setOpen(true)}
+      >
+        <Sparkles className="h-3.5 w-3.5" />
+        Summarize
+      </Button>
+      <AiSummaryDialog clientId={clientId} open={open} onOpenChange={setOpen} />
+    </>
   );
 }
 

@@ -34,11 +34,13 @@ import {
   CalendarClock,
   CornerUpLeft,
   Inbox as InboxIcon,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { ChannelIcon } from "../common/channel-icon";
 import { StatusBadge } from "../common/status-badge";
+import { AiSummaryDialog } from "../common/ai-assistant";
 import { channelMeta, initials, type ChannelKind } from "@/lib/format";
 import { CommCard } from "./comm-card";
 import { TriageCard } from "./triage-card";
@@ -88,6 +90,7 @@ export function ConversationPanel({
   const [assignMenuOpen, setAssignMenuOpen] = React.useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = React.useState(false);
   const [snoozeOpen, setSnoozeOpen] = React.useState(false);
+  const [summaryOpen, setSummaryOpen] = React.useState(false);
 
   // 1. Fetch the latest comm in the thread to learn clientId + threadKey.
   const latestQuery = useQuery<CommunicationResponse>({
@@ -259,6 +262,22 @@ export function ConversationPanel({
         </div>
 
         <div className="flex items-center gap-1.5">
+          {/* AI Summarize */}
+          {clientId && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 border-accent/40 text-accent-foreground hover:bg-accent/40"
+                onClick={() => setSummaryOpen(true)}
+                title="Summarize this thread with AI"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Summarize</span>
+              </Button>
+              <AiSummaryDialog clientId={clientId} open={summaryOpen} onOpenChange={setSummaryOpen} />
+            </>
+          )}
           {/* Snooze popover */}
           <Popover open={snoozeOpen} onOpenChange={setSnoozeOpen}>
             <PopoverTrigger asChild>
