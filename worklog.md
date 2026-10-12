@@ -378,3 +378,78 @@ Unresolved issues / next-phase priorities:
   theming applied to the portal preview, AI-suggested next actions on the
   dashboard, a "focus mode" that hides the sidebar for distraction-free
   inbox triage.
+
+---
+Task ID: cron-round-4 (EmptyState wiring + CSV import + next-actions + focus mode)
+Agent: lead (orchestrator) — cron-triggered webDevReview
+Task: Assess project status, QA via agent-browser, fix bugs, add new features
+(CSV import, AI next-actions, focus mode), wire EmptyState, improve styling.
+
+Work Log:
+- QA: all 9 views render without errors initially. Lint clean. Tested
+  command palette, ? shortcut, CSV export — all working from round 3.
+- BUG FIX: approvals view crashed with "Inbox is not defined" because I
+  removed the `Inbox` icon import while wiring EmptyState, but it was still
+  used in the filter pill icon map. Re-added the import.
+- EmptyState wiring: replaced inline empty-state divs in 5 views with the
+  shared EmptyStateCard component (built in round 3):
+  - Clients view: "No clients found" / "No clients yet" with clear-filters CTA.
+  - Files view: "No files match your filters" / "No files yet" with upload CTA.
+  - Approvals view: "No approvals" / filter-specific empty messages.
+  - Forms view: "No forms yet" with new-form CTA.
+  - Audit view: "No audit events match your filters" with clear-filters CTA.
+  - Removed unused icon imports (Users, FileText, ClipboardList, ScrollText)
+    left behind by the swap.
+- NEW FEATURE: Bulk client import from CSV.
+  - POST /api/portal/clients/import → accepts {rows: [{name, company, status,
+    tags, email, phone, ownerEmail}]}, creates clients + contacts, idempotent
+    on normalized email/phone (skips duplicates), writes audit log entries.
+  - New parseCsv + csvRowsToObjects utilities (src/lib/parse-csv.ts) — RFC 4180
+    compliant, handles quoted fields/escaped quotes/newlines in quotes.
+  - ImportClientsDialog component: drag-drop zone, file browse, "Load sample"
+    button (3 demo rows), expected-columns hint, 5-row preview table,
+    import button, result summary with imported/skipped/errors, "Download
+    template" button. Invalidates clients + dashboard queries on success.
+  - Verified end-to-end: loaded sample → 3 rows previewed → imported →
+    "3 imported, 0 skipped" → clients list went 3 → 6 total.
+    Reseeded after testing to restore 3-client demo state.
+- NEW FEATURE: AI-suggested next actions widget on dashboard.
+  - GET /api/portal/ai/next-actions → analyzes stale open threads (>24h),
+    pending approvals, overdue tasks, expiring integrations. Returns up to 6
+    prioritized actions with {priority, title, detail, cta, target view/clientId}.
+  - NextActionsWidget component: priority-coded action cards (urgent=rose,
+    high=amber, medium=sky) with icon, title, detail, CTA arrow. Clicking an
+    action navigates to the relevant client/view. Empty state: "all caught up".
+  - Wired into the dashboard below the "Needs attention" section.
+  - VLM-verified: shows 5 priority-sorted cards (Sofia urgent 50h, David high
+    48h, etc.).
+- NEW FEATURE: Focus mode (hide sidebar for distraction-free work).
+  - Added `focusMode` + `setFocusMode`/`toggleFocusMode` to the nav-store.
+  - AppShell hides the sidebar when focusMode is on.
+  - Topbar gets a PanelLeftClose/PanelLeftOpen toggle button.
+  - Verified: click toggle → sidebar hidden → click again → restored.
+  - Added "Topbar" group to the keyboard shortcuts help overlay documenting
+    the focus toggle and ? help buttons.
+
+Stage Summary:
+- ALL 9 views render without errors after the Inbox icon fix (verified).
+- Lint: 0 errors, 0 warnings.
+- 3 new features: CSV bulk import, AI next-actions widget, focus mode.
+- 5 empty states upgraded to use the shared EmptyStateCard with illustrations.
+- 4 new files: import-dialog.tsx, next-actions-widget.tsx, parse-csv.ts,
+  clients/import/route.ts, ai/next-actions/route.ts.
+- VLM dashboard rating: 9/10 (improved from 8.5/10).
+- Import verified end-to-end (3 clients imported, then rese eds).
+- Focus mode verified (sidebar hides/restores).
+
+Unresolved issues / next-phase priorities:
+- Per-client accent color theming on the client-detail header + timeline
+  (deferred from this round — the accentColor field exists in the schema but
+  isn't applied visually beyond the sidebar dot). Would make each client's
+  page feel branded.
+- Timeline item hover transitions + richer call card UI (deferred).
+- Real-time updates via WebSocket mini-service (still a future idea).
+- A "command bar" / inline command palette for quick actions within a view.
+- Bulk actions in the clients table (the checkboxes exist but the bulk action
+  bar only shows count, no actual actions wired).
+- The focus mode could also dim/hide the topbar breadcrumbs for full immersion.

@@ -20,7 +20,6 @@ import {
   FolderClosed,
   FolderOpen,
   Upload,
-  FileText,
   Search,
   ChevronDown,
   HardDrive,
@@ -33,6 +32,7 @@ import { useQueryState } from "@/components/portal/query-hooks";
 import { useNav } from "@/components/portal/nav-store";
 import { formatBytes } from "@/lib/format";
 import { exportToCsv } from "@/lib/csv";
+import { EmptyState as EmptyStateCard } from "@/components/portal/common/empty-state";
 import { cn } from "@/lib/utils";
 import type {
   FilesResponse,
@@ -439,30 +439,26 @@ function EmptyFiles({
   onClear: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-card/40 p-12 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        <FileText className="h-5 w-5" />
-      </div>
-      <div>
-        <p className="text-sm font-medium">
-          {hasFiles ? "No files match your filters" : "No files yet"}
-        </p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {hasFiles
-            ? "Try clearing your search or filters."
-            : "Upload your first file to get started."}
-        </p>
-      </div>
-      {hasFiles ? (
-        <Button variant="outline" size="sm" onClick={onClear}>
-          Clear filters
-        </Button>
-      ) : (
-        <Button size="sm" onClick={onUpload}>
-          <Upload className="mr-1.5 h-3.5 w-3.5" /> Upload your first file
-        </Button>
-      )}
-    </div>
+    <EmptyStateCard
+      illustration="files"
+      title={hasFiles ? "No files match your filters" : "No files yet"}
+      description={
+        hasFiles
+          ? "Try clearing your search or filters."
+          : "Upload your first file to get started."
+      }
+      action={
+        hasFiles ? (
+          <Button variant="outline" size="sm" onClick={onClear}>
+            Clear filters
+          </Button>
+        ) : (
+          <Button size="sm" onClick={onUpload}>
+            <Upload className="mr-1.5 h-3.5 w-3.5" /> Upload your first file
+          </Button>
+        )
+      }
+    />
   );
 }
 

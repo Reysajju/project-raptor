@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, MessageSquarePlus, RotateCcw, Inbox } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import { useQueryState } from "@/components/portal/query-hooks";
+import { EmptyState as EmptyStateCard } from "@/components/portal/common/empty-state";
 import type { ApprovalsResponse, Approval } from "./types";
 import { ApprovalCard } from "./approval-card";
 import { DecisionDialog, type DecisionMode } from "./decision-dialog";
@@ -208,19 +209,15 @@ function EmptyApprovals({ filter }: { filter: FilterKey }) {
           ? "No approved approvals"
           : "No changes requested";
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-card/40 p-12 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        <Inbox className="h-5 w-5" />
-      </div>
-      <div>
-        <p className="text-sm font-medium">{label}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {filter === "all"
-            ? "Create an approval from a client's detail page."
-            : "Switch filters to see other decisions."}
-        </p>
-      </div>
-    </div>
+    <EmptyStateCard
+      illustration="approvals"
+      title={label}
+      description={
+        filter === "all"
+          ? "Create an approval from a client's detail page."
+          : "Switch filters to see other decisions."
+      }
+    />
   );
 }
 

@@ -5,7 +5,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
-  ClipboardList,
   Plus,
   Pencil,
   Eye,
@@ -21,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState as EmptyStateCard } from "@/components/portal/common/empty-state";
 import {
   Collapsible,
   CollapsibleContent,
@@ -222,19 +222,17 @@ export function FormsView() {
       {/* Empty state */}
       {forms.length === 0 && (
         <Card className="surface-highlight">
-          <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-              <ClipboardList className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold">No forms yet</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Create a reusable form or a client-specific intake questionnaire.
-              </p>
-            </div>
-            <Button size="sm" className="h-9" onClick={openNew}>
-              <Plus className="h-4 w-4" /> New form
-            </Button>
+          <CardContent className="py-12">
+            <EmptyStateCard
+              illustration="forms"
+              title="No forms yet"
+              description="Create a reusable form or a client-specific intake questionnaire."
+              action={
+                <Button size="sm" className="h-9" onClick={openNew}>
+                  <Plus className="h-4 w-4" /> New form
+                </Button>
+              }
+            />
           </CardContent>
         </Card>
       )}

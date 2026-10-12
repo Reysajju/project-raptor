@@ -4,7 +4,6 @@ import * as React from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
-  ScrollText,
   Search,
   Download,
   Copy,
@@ -17,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState as EmptyStateCard } from "@/components/portal/common/empty-state";
 import {
   Select,
   SelectContent,
@@ -220,27 +220,25 @@ export function AuditView() {
               ))}
             </div>
           ) : logs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                <ScrollText className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold">No audit events match your filters.</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Try clearing the entity or action filter.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9"
-                onClick={() => {
-                  setEntity("all");
-                  setAction("");
-                }}
-              >
-                Clear filters
-              </Button>
+            <div className="py-10">
+              <EmptyStateCard
+                illustration="audit"
+                title="No audit events match your filters."
+                description="Try clearing the entity or action filter."
+                action={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    onClick={() => {
+                      setEntity("all");
+                      setAction("");
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                }
+              />
             </div>
           ) : (
             <div className="max-h-[70vh] overflow-y-auto scrollbar-thin">

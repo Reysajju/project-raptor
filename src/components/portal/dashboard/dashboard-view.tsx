@@ -47,6 +47,7 @@ import {
 import { ChannelIcon } from "../common/channel-icon";
 import { StatusBadge } from "../common/status-badge";
 import { CountUp } from "../common/count-up";
+import { NextActionsWidget } from "./next-actions-widget";
 import {
   Bar,
   BarChart,
@@ -397,6 +398,9 @@ export function DashboardView() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Suggested next actions */}
+      <NextActionsWidget />
     </div>
   );
 }

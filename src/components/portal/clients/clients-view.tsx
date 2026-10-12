@@ -44,7 +44,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Users,
   Plus,
   Search,
   ArrowUpDown,
@@ -53,9 +52,12 @@ import {
   KanbanSquare,
   RefreshCw,
   Download,
+  Upload,
 } from "lucide-react";
 import { exportToCsv } from "@/lib/csv";
 import { usePersistentState } from "@/lib/use-persistent-state";
+import { EmptyState as EmptyStateCard } from "@/components/portal/common/empty-state";
+import { ImportClientsDialog } from "./import-dialog";
 
 interface TeamMember {
   id: string;
@@ -219,6 +221,7 @@ export function ClientsView() {
           >
             <Download className="h-3.5 w-3.5" /> Export
           </Button>
+          <ImportClientsButton />
           <NewClientSheet />
         </div>
       </div>
@@ -269,7 +272,7 @@ export function ClientsView() {
       {isLoading ? (
         <DirectorySkeleton />
       ) : filtered.length === 0 ? (
-        <EmptyState
+        <ClientsEmptyState
           search={search}
           filter={filter}
           onClear={() => {
@@ -527,7 +530,7 @@ function ClientMobileCard({
   );
 }
 
-function EmptyState({
+function ClientsEmptyState({
   search,
   filter,
   onClear,
@@ -538,26 +541,22 @@ function EmptyState({
 }) {
   const hasFilter = !!search || filter !== "all";
   return (
-    <Card>
-      <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-          <Users className="h-5 w-5 text-muted-foreground" />
-        </div>
-        <div>
-          <p className="text-sm font-medium">No clients found</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {hasFilter
-              ? "Try adjusting your search or filters."
-              : "Create your first client using the “New client” button."}
-          </p>
-        </div>
-        {hasFilter ? (
+    <EmptyStateCard
+      illustration="clients"
+      title={hasFilter ? "No clients found" : "No clients yet"}
+      description={
+        hasFilter
+          ? "Try adjusting your search or filters."
+          : "Create your first client using the “New client” button."
+      }
+      action={
+        hasFilter ? (
           <Button variant="outline" size="sm" onClick={onClear}>
             Clear filters
           </Button>
-        ) : null}
-      </CardContent>
-    </Card>
+        ) : null
+      }
+    />
   );
 }
 
@@ -576,6 +575,24 @@ function DirectorySkeleton() {
         </div>
       ))}
     </Card>
+  );
+}
+
+function ImportClientsButton() {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-1.5"
+        onClick={() => setOpen(true)}
+        title="Import clients from CSV"
+      >
+        <Upload className="h-3.5 w-3.5" /> Import
+      </Button>
+      <ImportClientsDialog open={open} onOpenChange={setOpen} />
+    </>
   );
 }
 

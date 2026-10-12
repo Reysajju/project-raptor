@@ -40,6 +40,13 @@ const GROUPS: ShortcutGroup[] = [
     ],
   },
   {
+    title: "Topbar",
+    items: [
+      { keys: ["Click"], label: "Focus toggle — hide sidebar for distraction-free work" },
+      { keys: ["Click"], label: "? button — open this shortcuts help" },
+    ],
+  },
+  {
     title: "Inbox",
     items: [
       { keys: ["J"], label: "Move to next thread", icon: ArrowDown },

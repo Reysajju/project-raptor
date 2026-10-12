@@ -14,12 +14,13 @@ import {
   Settings,
   ScrollText,
   Search,
-  Bell,
   Menu,
   ChevronLeft,
   Moon,
   Sun,
   ChevronsUpDown,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -49,16 +50,18 @@ interface NavItem {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
-  const nav = useNav();
+  const focusMode = useNav((s) => s.focusMode);
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      <Sidebar
-        collapsed={collapsed}
-        onToggle={() => setCollapsed((c) => !c)}
-        mobileOpen={mobileOpen}
-        onMobileClose={() => setMobileOpen(false)}
-      />
+      {!focusMode && (
+        <Sidebar
+          collapsed={collapsed}
+          onToggle={() => setCollapsed((c) => !c)}
+          mobileOpen={mobileOpen}
+          onMobileClose={() => setMobileOpen(false)}
+        />
+      )}
       <div className="flex min-h-screen flex-1 flex-col min-w-0">
         <TopBar onMenuClick={() => setMobileOpen(true)} />
         <main className="flex-1">
@@ -200,6 +203,7 @@ function Sidebar({
 
 function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
   const nav = useNav();
+  const focusMode = useNav((s) => s.focusMode);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
@@ -254,6 +258,20 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
           <kbd className="ml-2 hidden rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground lg:inline">
             ⌘K
           </kbd>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hidden h-8 w-8 sm:flex"
+          aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"}
+          title={focusMode ? "Exit focus mode" : "Focus mode (hide sidebar)"}
+          onClick={() => useNav.getState().toggleFocusMode()}
+        >
+          {focusMode ? (
+            <PanelLeftOpen className="h-4 w-4" />
+          ) : (
+            <PanelLeftClose className="h-4 w-4" />
+          )}
         </Button>
         <Button
           variant="ghost"

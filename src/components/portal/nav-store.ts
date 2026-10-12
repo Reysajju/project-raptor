@@ -32,6 +32,8 @@ export interface NavState {
   commandOpen: boolean;
   /** Recent breadcrumb trail for the top bar. */
   trail: { label: string; view?: ViewKey; clientId?: string }[];
+  /** Focus mode hides the sidebar for distraction-free work. */
+  focusMode: boolean;
 
   setView: (view: ViewKey) => void;
   openClient: (clientId: string, tab?: string) => void;
@@ -42,6 +44,8 @@ export interface NavState {
   setCommandOpen: (open: boolean) => void;
   setTrail: (trail: NavState["trail"]) => void;
   goBack: () => void;
+  setFocusMode: (v: boolean) => void;
+  toggleFocusMode: () => void;
 }
 
 export const useNav = create<NavState>()(
@@ -55,6 +59,7 @@ export const useNav = create<NavState>()(
       settingsTab: "integrations",
       commandOpen: false,
       trail: [{ label: "Dashboard" }],
+      focusMode: false,
 
       setView: (view) =>
         set({
@@ -98,6 +103,9 @@ export const useNav = create<NavState>()(
           set({ view: "dashboard", trail: [{ label: "Dashboard" }] })
         }
       },
+
+      setFocusMode: (v) => set({ focusMode: v }),
+      toggleFocusMode: () => set((s) => ({ focusMode: !s.focusMode })),
     }),
     {
       name: "portal:nav",
