@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTheme } from "next-themes";
 import { useNav, type ViewKey } from "../nav-store";
 import {
   CommandDialog,
@@ -59,6 +60,7 @@ const navItems: NavItem[] = [
 
 export function CommandPalette() {
   const nav = useNav();
+  const { theme, setTheme } = useTheme();
   const open = useNav((s) => s.commandOpen);
   const setOpen = useNav((s) => s.setCommandOpen);
   const [q, setQ] = React.useState("");
@@ -172,11 +174,7 @@ export function CommandPalette() {
               <CommandItem
                 value="toggle theme dark light"
                 onSelect={() => {
-                  const isDark = document.documentElement.classList.contains("dark");
-                  document.documentElement.classList.toggle("dark", !isDark);
-                  try {
-                    localStorage.setItem("theme", isDark ? "light" : "dark");
-                  } catch {}
+                  setTheme(theme === "dark" ? "light" : "dark");
                   close();
                 }}
               >

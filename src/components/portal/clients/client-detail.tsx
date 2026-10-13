@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/portal/common/status-badge";
 import { ChannelIcon } from "@/components/portal/common/channel-icon";
 import { AiSummaryDialog, AiDraftButton } from "@/components/portal/common/ai-assistant";
 import { PortalPreviewButton } from "@/components/portal/common/portal-preview";
+import { MagicLinkDialog } from "@/components/portal/common/magic-link-dialog";
 import { HealthScoreWidget } from "@/components/portal/common/health-score-widget";
 import { RelationshipTimeline } from "@/components/portal/common/relationship-timeline";
 import { accentGradient, ACCENT_DOT, resolveAccent } from "@/lib/accent";
@@ -110,6 +111,7 @@ import {
   RefreshCw,
   AlertCircle,
   Sparkles,
+  Link2,
 } from "lucide-react";
 
 // ============================================================
@@ -569,6 +571,11 @@ function Header({
       </div>
       <div className="flex items-center gap-2">
         <PortalPreviewButton clientId={client.id} />
+        <MagicLinkButton
+          clientId={client.id}
+          clientName={client.name}
+          clientEmail={client.contacts.find((c) => c.type === "email")?.value ?? null}
+        />
         <div className="hidden max-w-[280px] flex-wrap items-center gap-1 sm:flex">
           {client.tags.length === 0 ? (
             <span className="text-xs text-muted-foreground">No tags</span>
@@ -931,7 +938,7 @@ function TimelineTab({
                 : "Add an internal note…  (⌘/Ctrl + Enter to send)"
             }
             rows={3}
-            className="min-h-[72px] resize-none"
+            className="min-h-[72px] resize-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40"
           />
           <div className="flex flex-col items-end gap-1.5">
             <AiDraftButton
@@ -971,6 +978,39 @@ function TimelineTab({
         </div>
       </div>
     </Card>
+  );
+}
+
+function MagicLinkButton({
+  clientId,
+  clientName,
+  clientEmail,
+}: {
+  clientId: string;
+  clientName: string;
+  clientEmail: string | null;
+}) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-1.5"
+        onClick={() => setOpen(true)}
+        title="Generate a portal magic link"
+      >
+        <Link2 className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Portal access</span>
+      </Button>
+      <MagicLinkDialog
+        clientId={clientId}
+        clientName={clientName}
+        clientEmail={clientEmail}
+        open={open}
+        onOpenChange={setOpen}
+      />
+    </>
   );
 }
 

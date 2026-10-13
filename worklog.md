@@ -871,3 +871,74 @@ Unresolved issues / next-phase priorities:
   could use next-themes' setTheme for consistency.
 - Future: per-client SLA config, real-time WebSocket updates, client portal
   magic-link flow, keyboard-driven tag assignment, focus mode timer.
+
+---
+Task ID: cron-round-11 (magic link + focus timer + theme toggle fix + hero gradient)
+Agent: lead (orchestrator) — cron-triggered webDevReview
+Task: Assess project status, QA via agent-browser, add new features
+(magic link flow, focus timer), fix theme toggle, improve styling.
+
+Work Log:
+- QA: all 9 views render without errors. Lint clean. Round 10 features
+  (saved filters, command actions, KPI sparklines, sidebar workspace)
+  all confirmed working.
+- NEW FEATURE: Client portal magic-link flow simulation.
+  - MagicLinkDialog component: generates a 32-char token, shows a preview
+    of the magic link URL (with copy button), expiry selector (15m/30m/
+    1h/24h), email recipient display, security note, and "Send link"
+    button. Sending writes a system event to the timeline via POST
+    /communications. Regenerate button creates a new token.
+  - MagicLinkButton wrapper in the client-detail header (next to Portal
+    preview). Wired to pass clientId, clientName, and the client's
+    primary email.
+  - VLM-verified: "Portal access dialog for Sofia Rinaldi with magic link
+    URL, expiry selector 15m selected, copy icon, Send link button".
+- NEW FEATURE: Focus mode timer with elapsed time + auto-exit.
+  - FocusTimer component: floating pill in the bottom-right corner that
+    appears when focus mode is on. Shows a 25-min countdown (Pomodoro-style)
+    with a circular SVG progress ring, pause/resume, and exit button.
+    Auto-exits focus mode when the timer hits 0. Persists start timestamp
+    in localStorage so it survives reloads. Pausing shifts the start time
+    forward by the paused duration.
+  - Wired into page.tsx alongside CommandPalette and ShortcutHelpOverlay.
+  - VLM-verified: "floating focus timer showing 24:58 with circular
+    progress ring, pause button, exit button".
+- ENHANCEMENT: Command palette theme toggle uses next-themes setTheme.
+  - Replaced direct DOM manipulation (document.documentElement.classList)
+    with useTheme() from next-themes → setTheme(theme === "dark" ? "light"
+    : "dark"). This is consistent with the topbar theme toggle and
+    respects the user's system preference.
+- STYLING: Dashboard hero gradient.
+  - Hero section now has a gradient background (from-primary/10 via-card
+    to-card) with a blurred glow (bg-primary/10 blur-3xl) in the top-right
+    corner. Rounded-xl border + surface-highlight.
+  - VLM-verified: "gradient background with blurred glow, rating 9/10,
+    exceptionally polished with high-fidelity details".
+- STYLING: Timeline composer focus ring.
+  - The composer Textarea now has transition-all duration-200 +
+    focus-visible:ring-2 focus-visible:ring-primary/40 +
+    focus-visible:border-primary/40 for a clear focus state.
+
+Stage Summary:
+- ALL 9 views render without errors (verified).
+- Lint: 0 errors, 0 warnings.
+- 2 new features: client portal magic-link flow, focus mode timer with
+  auto-exit.
+- 1 enhancement: command palette theme toggle uses next-themes properly.
+- 2 styling improvements: dashboard hero gradient with glow, timeline
+  composer focus ring.
+- 3 new files: magic-link-dialog.tsx, focus-timer.tsx (0 new API routes —
+  magic link uses the existing communications POST for the system event).
+- VLM-verified: magic link dialog (Sofia Rinaldi, 15m, send button), focus
+  timer (24:58 countdown + ring), dashboard hero gradient (9/10 rating).
+
+Unresolved issues / next-phase priorities:
+- The magic link token is client-side generated (not cryptographically
+  real) — in production this would be a server-side JWT with a short TTL.
+- The focus timer is 25 min fixed — could add configurable durations
+  (15/25/45/60) or a break timer.
+- The hero gradient glow is primary-colored — could match the user's
+  accent color preference.
+- Future: per-client SLA config, real-time WebSocket updates, keyboard-
+  driven tag assignment, in-app onboarding for new clients, exportable
+  weekly summary report.

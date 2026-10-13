@@ -7,6 +7,7 @@ import { useCurrentUser } from "@/components/portal/user-store";
 import { useNav } from "@/components/portal/nav-store";
 import { CommandPalette } from "@/components/portal/command/command-palette";
 import { ShortcutHelpOverlay } from "@/components/portal/common/shortcut-help";
+import { FocusTimer } from "@/components/portal/common/focus-timer";
 import { useNavGotoShortcuts } from "@/components/portal/common/use-goto-shortcuts";
 import { DashboardView } from "@/components/portal/dashboard/dashboard-view";
 import { ClientsView } from "@/components/portal/clients/clients-view";
@@ -65,6 +66,7 @@ export default function Page() {
       </AppShell>
       <CommandPalette />
       <ShortcutHelpOverlay />
+      <FocusTimer />
     </QueryProvider>
   );
 }

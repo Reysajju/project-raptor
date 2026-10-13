@@ -128,7 +128,9 @@ export function DashboardView() {
   return (
     <div className="space-y-5">
       {/* Hero */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-primary/10 via-card to-card p-5 surface-highlight">
+        <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
+        <div className="relative flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Command center
@@ -146,6 +148,7 @@ export function DashboardView() {
           <Button size="sm" onClick={() => nav.setView("clients")}>
             <Users className="mr-1.5 h-3.5 w-3.5" /> View clients
           </Button>
+        </div>
         </div>
       </div>
 
