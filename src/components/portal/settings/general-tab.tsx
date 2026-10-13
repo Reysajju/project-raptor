@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { NotificationsPreferences } from "./notifications-preferences";
 import {
   Select,
   SelectContent,
@@ -269,6 +270,9 @@ export function GeneralTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Notification preferences */}
+      <NotificationsPreferences />
     </div>
   );
 }

@@ -54,6 +54,7 @@ import { ActivityHeatmapWidget } from "./activity-heatmap-widget";
 import { OnboardingChecklistWidget } from "./onboarding-checklist-widget";
 import { SlaAlertsWidget } from "./sla-alerts-widget";
 import { TeamWorkloadWidget } from "./team-workload-widget";
+import { WhatsNewWidget } from "./whats-new-widget";
 import { useDashboardStore } from "./dashboard-store";
 import {
   Bar,
@@ -184,6 +185,9 @@ export function DashboardView() {
 
       {/* SLA alerts */}
       <SlaAlertsWidget />
+
+      {/* What's new changelog (auto-hides when dismissed) */}
+      <WhatsNewWidget />
 
       {/* Recent activity + channel mix */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">

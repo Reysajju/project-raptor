@@ -70,6 +70,7 @@ import {
 } from "lucide-react";
 import { exportToCsv } from "@/lib/csv";
 import { usePersistentState } from "@/lib/use-persistent-state";
+import { getTagDot } from "@/lib/tag-colors";
 import { EmptyState as EmptyStateCard } from "@/components/portal/common/empty-state";
 import { ImportClientsDialog } from "./import-dialog";
 import { TagsManagerButton } from "./tags-manager";
@@ -372,7 +373,13 @@ export function ClientsView() {
                             <span className="text-xs text-muted-foreground">—</span>
                           ) : (
                             c.tags.slice(0, 2).map((t) => (
-                              <Badge key={t} variant="outline" className="px-1.5 py-0 text-[10px] font-normal">
+                              <Badge
+                                key={t}
+                                variant="outline"
+                                className="gap-1 px-1.5 py-0 text-[10px] font-normal"
+                                style={{ borderColor: `color-mix(in srgb, ${getTagDot(t)} 30%, transparent)`, color: getTagDot(t) }}
+                              >
+                                <span className="h-1 w-1 rounded-full" style={{ background: getTagDot(t) }} />
                                 {t}
                               </Badge>
                             ))

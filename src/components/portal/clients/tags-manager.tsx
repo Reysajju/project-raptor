@@ -31,6 +31,7 @@ import { useQueryState, apiPost, apiDelete } from "@/components/portal/query-hoo
 import { useNav } from "@/components/portal/nav-store";
 import { toast } from "sonner";
 import { initials, parseTags } from "@/lib/format";
+import { getTagDot } from "@/lib/tag-colors";
 import { cn } from "@/lib/utils";
 
 interface TagClient {
@@ -213,7 +214,14 @@ function TagRow({ tag, onAfter }: { tag: TagEntry; onAfter: () => void }) {
         </div>
       ) : (
         <>
-          <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs font-medium">
+          <span
+            className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 font-mono text-xs font-medium")}
+            style={{ background: `color-mix(in srgb, ${getTagDot(tag.name)} 20%, transparent)`, color: getTagDot(tag.name) }}
+          >
+            <span
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ background: getTagDot(tag.name) }}
+            />
             {tag.name}
           </span>
           <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
