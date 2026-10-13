@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useNav, type ViewKey } from "./nav-store";
 import { useCurrentUser } from "./user-store";
+import { useAuth } from "./auth/auth-store";
 import {
   LayoutDashboard,
   Users,
@@ -21,6 +22,7 @@ import {
   ChevronsUpDown,
   PanelLeftClose,
   PanelLeftOpen,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -125,15 +127,24 @@ function Sidebar({
       >
         <div className="flex h-14 items-center gap-2 px-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground surface-highlight">
-            <span className="font-mono text-sm font-bold">360</span>
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M16 3h5v5" />
+              <path d="M8 3H3v5" />
+              <path d="M21 3l-7 7" />
+              <path d="M3 3l7 7" />
+              <path d="M16 21h5v-5" />
+              <path d="M8 21H3v-5" />
+              <path d="M21 21l-7-7" />
+              <path d="M3 21l7-7" />
+            </svg>
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold leading-tight">
-                Client Management
+                Raptor Portal
               </p>
               <p className="truncate text-[11px] text-muted-foreground leading-tight">
-                360 Portal
+                Client workspace
               </p>
             </div>
           )}
@@ -198,7 +209,7 @@ function Sidebar({
               <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 Workspace
               </p>
-              <p className="mt-0.5 truncate text-xs font-semibold">Onboard With Us</p>
+              <p className="mt-0.5 truncate text-xs font-semibold">Raptor Portal</p>
               <p className="truncate text-[10px] text-muted-foreground">3 members · Free plan</p>
             </div>
             <div className="rounded-lg border border-sidebar-border bg-sidebar-accent/40 p-3">
@@ -350,7 +361,7 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
               {user?.fullName ?? "Alex Mercer"}
             </DropdownMenuLabel>
             <DropdownMenuLabel className="-mt-2 text-[11px] text-muted-foreground font-normal">
-              {user?.email ?? "alex@onboardwithus.com"}
+              {user?.email ?? "demo@raptorportal.app"}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => nav.setView("settings")}>
@@ -358,6 +369,16 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => nav.setView("audit")}>
               <ScrollText className="mr-2 h-4 w-4" /> Audit log
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-rose-foreground focus:text-rose-foreground"
+              onClick={() => {
+                useAuth.getState().logout();
+                setTimeout(() => window.location.reload(), 300);
+              }}
+            >
+              <LogOut className="mr-2 h-4 w-4" /> Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -392,7 +413,7 @@ function Footer() {
             {counts.open ?? 0} open · {counts.unassigned ?? 0} unassigned · {counts.unmatched ?? 0} unmatched
           </span>
           <span className="hidden md:inline">·</span>
-          <span className="hidden md:inline font-mono">Client Management 360 · v1.0</span>
+          <span className="hidden md:inline font-mono">Raptor Portal · v2.0</span>
         </div>
       </div>
     </footer>

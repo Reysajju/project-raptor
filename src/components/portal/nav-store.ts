@@ -56,7 +56,7 @@ export const useNav = create<NavState>()(
       clientTab: "timeline",
       inboxFilter: "all",
       projectId: null,
-      settingsTab: "integrations",
+      settingsTab: "email",
       commandOpen: false,
       trail: [{ label: "Dashboard" }],
       focusMode: false,

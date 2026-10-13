@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useCurrentUser } from "@/components/portal/user-store";
 import { useNav } from "../nav-store";
 import { useQueryState } from "../query-hooks";
 import {
@@ -103,6 +104,7 @@ export function DashboardView() {
     "/api/portal/dashboard/kpi-trends"
   );
   const nav = useNav();
+  const user = useCurrentUser((s) => s.user);
   const selectedDate = useDashboardStore((s) => s.selectedDate);
   const setSelectedDate = useDashboardStore((s) => s.setSelectedDate);
 
@@ -135,7 +137,7 @@ export function DashboardView() {
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Command center
           </p>
-          <h1 className="text-2xl font-semibold tracking-tight">Welcome back, Alex</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Welcome back, {user?.fullName?.split(" ")[0] ?? "there"}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {data.kpis.openComms} open items · {data.kpis.pendingApprovals} approvals awaiting
             decision · {data.staleOpenCount} clients with stale open threads.

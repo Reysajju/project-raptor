@@ -1,6 +1,5 @@
-// Client Management 360 Portal — Prisma schema
-// SQLite-backed. RLS-equivalent access control is enforced in API route
-// handlers (see src/lib/authz.ts) rather than at the DB layer.
+// Raptor Portal — Prisma schema
+// SQLite-backed. Access control is enforced in API route handlers.
 
 generator client {
   provider = "prisma-client-js"
@@ -296,4 +295,86 @@ model AuditLog {
 
   @@index([entity, entityId])
   @@index([createdAt])
+}
+
+// ============================================================
+// Auth & User Accounts
+// ============================================================
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  fullName    String?
+  role        String   @default("member") // owner | admin | member
+  avatarUrl   String?
+  isDemo      Boolean  @default(false)
+  lastLoginAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  magicLinks  MagicLinkToken[]
+  sessions    Session[]
+
+  @@index([email])
+}
+
+model MagicLinkToken {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  email       String   // the email the link was sent to
+  userId      String?  // resolved user (null if new signup)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([email])
+}
+
+model Session {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  userId      String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+// ============================================================
+// Third-party integrations: Email accounts & Google Drive
+// ============================================================
+
+model EmailAccount {
+  id          String   @id @default(cuid())
+  email       String
+  type        String   // gmail | custom | outlook
+  displayName String?
+  // For Gmail: stores the OAuth scopes available. For custom domains:
+  // stores IMAP/SMTP config (server, port, encryption).
+  configJson  String   @default("{}")
+  isActive    Boolean  @default(true)
+  connectedAt DateTime @default(now())
+  lastSyncAt  DateTime?
+  userId      String?
+
+  @@index([email])
+}
+
+model DriveConnection {
+  id          String   @id @default(cuid())
+  provider    String   @default("google_drive")
+  folderUrl   String   // the shared folder link
+  folderName  String?
+  isActive    Boolean  @default(true)
+  connectedAt DateTime @default(now())
+  lastSyncAt  DateTime?
+  userId      String?
+
+  @@index([provider])
 }

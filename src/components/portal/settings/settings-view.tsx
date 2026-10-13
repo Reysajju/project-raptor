@@ -6,6 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IntegrationsTab } from "./integrations-tab";
 import { TeamTab } from "./team-tab";
 import { GeneralTab } from "./general-tab";
+import { EmailAccountsTab } from "./email-accounts-tab";
+import { DriveConnectionsTab } from "./drive-connections-tab";
 
 export function SettingsView() {
   const tab = useNav((s) => s.settingsTab);
@@ -19,12 +21,18 @@ export function SettingsView() {
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Manage integrations, team members, and workspace preferences.
+          Manage email accounts, Google Drive, integrations, team members, and workspace preferences.
         </p>
       </header>
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList className="h-9 w-fit">
+        <TabsList className="h-9 w-fit flex-wrap">
+          <TabsTrigger value="email" className="px-3 text-xs sm:text-sm">
+            Email
+          </TabsTrigger>
+          <TabsTrigger value="drive" className="px-3 text-xs sm:text-sm">
+            Google Drive
+          </TabsTrigger>
           <TabsTrigger value="integrations" className="px-3 text-xs sm:text-sm">
             Integrations
           </TabsTrigger>
@@ -35,6 +43,12 @@ export function SettingsView() {
             General
           </TabsTrigger>
         </TabsList>
+        <TabsContent value="email" className="mt-4">
+          <EmailAccountsTab />
+        </TabsContent>
+        <TabsContent value="drive" className="mt-4">
+          <DriveConnectionsTab />
+        </TabsContent>
         <TabsContent value="integrations" className="mt-4">
           <IntegrationsTab />
         </TabsContent>

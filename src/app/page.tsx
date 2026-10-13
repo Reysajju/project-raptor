@@ -9,6 +9,8 @@ import { CommandPalette } from "@/components/portal/command/command-palette";
 import { ShortcutHelpOverlay } from "@/components/portal/common/shortcut-help";
 import { FocusTimer } from "@/components/portal/common/focus-timer";
 import { useNavGotoShortcuts } from "@/components/portal/common/use-goto-shortcuts";
+import { useAuth } from "@/components/portal/auth/auth-store";
+import { AuthScreen } from "@/components/portal/auth/auth-screen";
 import { DashboardView } from "@/components/portal/dashboard/dashboard-view";
 import { ClientsView } from "@/components/portal/clients/clients-view";
 import { ClientDetail } from "@/components/portal/clients/client-detail";
@@ -57,9 +59,64 @@ class ViewErrorBoundary extends React.Component<
 }
 
 export default function Page() {
+  const [mounted, setMounted] = React.useState(false);
+  const isAuthenticated = useAuth((s) => s.isAuthenticated);
+  const sessionToken = useAuth((s) => s.sessionToken);
+  const authUser = useAuth((s) => s.user);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Check for ?token= in URL (magic link verification)
+  React.useEffect(() => {
+    if (!mounted) return;
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    if (token && !isAuthenticated) {
+      // Verify the token via API
+      (async () => {
+        try {
+          const res = await fetch("/api/auth/verify-magic-link", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token }),
+          });
+          const data = await res.json();
+          if (data.ok && data.sessionToken) {
+            useAuth.getState().setSession(data.sessionToken, data.user);
+            // Clean the URL
+            window.history.replaceState({}, "", window.location.pathname);
+            window.location.reload();
+          }
+        } catch (err) {
+          console.error("Magic link verification failed", err);
+        }
+      })();
+    }
+  }, [mounted, isAuthenticated]);
+
+  if (!mounted) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  // Not authenticated → show auth screen
+  if (!isAuthenticated) {
+    return (
+      <QueryProvider>
+        <AuthScreen />
+      </QueryProvider>
+    );
+  }
+
+  // Authenticated → show the main app
   return (
     <QueryProvider>
-      <BootstrapUser />
+      <BootstrapUser user={authUser} />
       <GotoShortcutsBootstrap />
       <AppShell>
         <ViewRouterWithBoundary />
@@ -71,21 +128,23 @@ export default function Page() {
   );
 }
 
-function GotoShortcutsBootstrap() {
-  useNavGotoShortcuts();
+function BootstrapUser({ user }: { user: { email: string; fullName: string; role: string } | null }) {
+  const setUser = useCurrentUser((s) => s.setUser);
+  React.useEffect(() => {
+    if (user) {
+      setUser({
+        id: user.email,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role as "owner" | "admin" | "client",
+      });
+    }
+  }, [user, setUser]);
   return null;
 }
 
-function BootstrapUser() {
-  const setUser = useCurrentUser((s) => s.setUser);
-  React.useEffect(() => {
-    setUser({
-      id: "owner",
-      email: "alex@onboardwithus.com",
-      fullName: "Alex Mercer",
-      role: "owner",
-    });
-  }, [setUser]);
+function GotoShortcutsBootstrap() {
+  useNavGotoShortcuts();
   return null;
 }
 

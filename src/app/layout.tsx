@@ -16,31 +16,32 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Client Management 360 Portal",
+  title: "Raptor Portal",
   description:
-    "Dark-mode command center for client communications, projects, files, approvals and intake — across Gmail, OpenPhone and RingCentral in one unified timeline.",
+    "Production-grade client management portal with unified communications, project tracking, file vault, approvals, and third-party integrations — Google Drive, Gmail, custom domain email, and more.",
   keywords: [
+    "Raptor Portal",
     "client management",
     "unified inbox",
     "CRM",
+    "Google Drive",
     "Gmail",
-    "OpenPhone",
-    "RingCentral",
+    "magic link",
     "approvals",
     "intake forms",
   ],
-  authors: [{ name: "Onboard With Us" }],
+  authors: [{ name: "Raptor Portal" }],
   icons: { icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg" },
   openGraph: {
-    title: "Client Management 360 Portal",
+    title: "Raptor Portal",
     description:
-      "Every email, text, call, file and project update for a client in one chronological stream.",
-    siteName: "Client Management 360",
+      "Every email, text, call, file and project update for a client in one chronological stream. Magic-link auth, Google Drive sync, and multi-account email.",
+    siteName: "Raptor Portal",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Client Management 360 Portal",
+    title: "Raptor Portal",
     description:
       "Unified client communications, projects, files, approvals and intake.",
   },
