@@ -74,6 +74,7 @@ import { getTagDot } from "@/lib/tag-colors";
 import { EmptyState as EmptyStateCard } from "@/components/portal/common/empty-state";
 import { ImportClientsDialog } from "./import-dialog";
 import { TagsManagerButton } from "./tags-manager";
+import { SavedFiltersBar } from "./saved-filters";
 
 interface TeamMember {
   id: string;
@@ -267,6 +268,19 @@ export function ClientsView() {
           ))}
         </div>
       </div>
+
+      {/* Saved filter presets */}
+      <SavedFiltersBar
+        currentSearch={search}
+        currentFilter={filter}
+        currentSort={sort}
+        onApply={(p) => {
+          setSearch(p.search);
+          setFilter(p.filter as typeof filter);
+          setSort(p.sort as typeof sort);
+          toast.success(`Applied preset "${p.name}"`);
+        }}
+      />
 
       {/* Bulk action bar */}
       {selected.size > 0 && (

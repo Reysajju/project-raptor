@@ -144,29 +144,64 @@ export function CommandPalette() {
               })}
             </CommandGroup>
             <CommandSeparator />
-            <CommandGroup heading="Actions">
+            <CommandGroup heading="Quick actions">
               <CommandItem
-                value="new client"
+                value="new client create"
                 onSelect={() => {
                   goView("clients");
                 }}
               >
                 <Users className="mr-2 h-4 w-4 text-muted-foreground" />
                 <span>Create new client</span>
+                <kbd className="ml-auto rounded border border-border bg-muted px-1 font-mono text-[9px] text-muted-foreground">N</kbd>
               </CommandItem>
               <CommandItem
-                value="log note"
+                value="log note internal"
                 onSelect={() => goView("inbox")}
               >
                 <FileText className="mr-2 h-4 w-4 text-muted-foreground" />
                 <span>Log an internal note</span>
               </CommandItem>
               <CommandItem
-                value="simulate webhook"
+                value="simulate webhook fire event"
                 onSelect={() => goView("settings")}
               >
                 <Search className="mr-2 h-4 w-4 text-muted-foreground" />
                 <span>Open webhook simulator</span>
+              </CommandItem>
+              <CommandItem
+                value="toggle theme dark light"
+                onSelect={() => {
+                  const isDark = document.documentElement.classList.contains("dark");
+                  document.documentElement.classList.toggle("dark", !isDark);
+                  try {
+                    localStorage.setItem("theme", isDark ? "light" : "dark");
+                  } catch {}
+                  close();
+                }}
+              >
+                <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
+                <span>Toggle dark / light theme</span>
+              </CommandItem>
+              <CommandItem
+                value="focus mode hide sidebar"
+                onSelect={() => {
+                  useNav.getState().toggleFocusMode();
+                  close();
+                }}
+              >
+                <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
+                <span>Toggle focus mode</span>
+              </CommandItem>
+              <CommandItem
+                value="shortcuts help keyboard"
+                onSelect={() => {
+                  window.dispatchEvent(new KeyboardEvent("keydown", { key: "?" }));
+                  close();
+                }}
+              >
+                <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
+                <span>Show keyboard shortcuts</span>
               </CommandItem>
             </CommandGroup>
           </>

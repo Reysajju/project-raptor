@@ -809,3 +809,65 @@ Unresolved issues / next-phase priorities:
   field in the build or a changelog.json file.
 - Future: per-client SLA config, real-time WebSocket updates, client portal
   magic-link flow, keyboard-driven tag assignment, a "focus mode" timer.
+
+---
+Task ID: cron-round-10 (saved filters + command actions + KPI sparklines + sidebar footer)
+Agent: lead (orchestrator) — cron-triggered webDevReview
+Task: Assess project status, QA via agent-browser, add new features
+(saved filter presets, command palette quick actions, KPI sparklines),
+improve sidebar styling.
+
+Work Log:
+- QA: all 9 views render without errors. Lint clean. Round 9 features
+  (whats-new, notifications prefs, tag colors, glassmorphism) confirmed.
+- NEW FEATURE: Saved filter presets on clients view.
+  - SavedFiltersBar component: shows saved presets as pill chips (active
+    one highlighted), a "Save" button that opens a popover with name input,
+    delete-on-hover per preset. Persists via usePersistentState
+    (localStorage key: portal:clients:savedFilters).
+  - Saving captures current search + filter + sort. Clicking a preset
+    applies all three instantly with a toast. Disabled when no filter is
+    active. Wired into the clients view toolbar.
+  - VLM-verified: "Save button present" on the clients view.
+- NEW FEATURE: Command palette quick actions.
+  - Expanded the "Actions" group to "Quick actions" with 6 items: Create
+    new client (with N kbd hint), Log an internal note, Open webhook
+    simulator, Toggle dark/light theme (actually toggles, not just navigates),
+    Toggle focus mode (calls useNav.toggleFocusMode), Show keyboard shortcuts
+    (dispatches ? keydown). Each has richer search aliases.
+  - The theme toggle and focus mode toggle are real actions that execute
+    immediately, not just navigation.
+- ENHANCEMENT: Dashboard KPI sparkline mini-charts (7-day trend per KPI).
+  - GET /api/portal/dashboard/kpi-trends → 7-day trend for totalClients,
+    openComms, activeProjects, pendingApprovals. Each day's value is the
+    count as of that day's end.
+  - New Sparkline component (src/components/portal/common/sparkline.tsx):
+    inline SVG with area fill + line + end dot. Trend-color adaptive
+    (up=emerald, down=rose). 70x20px, opacity 60% → 100% on hover.
+  - KpiCard now accepts a `spark` prop and renders the sparkline in the
+    bottom-right, next to the hint text.
+  - VLM-verified: "4 sparkline mini-charts in the bottom-right of each card".
+- STYLING: Sidebar footer workspace card.
+  - Added a "Workspace" card above the Storage meter showing org name
+    ("Onboard With Us") and "3 members · Free plan".
+  - VLM-verified: "Workspace card at the bottom displaying Onboard With Us,
+    3 members · Free plan, and a Storage meter".
+
+Stage Summary:
+- ALL 9 views render without errors (verified).
+- Lint: 0 errors, 0 warnings.
+- 2 new features: saved filter presets, command palette quick actions
+  (theme toggle, focus mode, shortcuts help).
+- 1 enhancement: KPI sparkline mini-charts on all 4 dashboard KPI cards.
+- 1 styling improvement: sidebar footer workspace card.
+- 4 new files: saved-filters.tsx, sparkline.tsx, dashboard/kpi-trends/route.ts.
+- VLM-verified: 4 KPI sparklines, sidebar workspace card, save preset button.
+
+Unresolved issues / next-phase priorities:
+- The saved filters only cover the clients view — could extend to inbox/files.
+- The KPI trends API queries 4 counts per day × 7 days = 28 queries; could
+  be optimized into a single aggregation query.
+- The command palette theme toggle directly manipulates the DOM class;
+  could use next-themes' setTheme for consistency.
+- Future: per-client SLA config, real-time WebSocket updates, client portal
+  magic-link flow, keyboard-driven tag assignment, focus mode timer.

@@ -56,6 +56,7 @@ import { SlaAlertsWidget } from "./sla-alerts-widget";
 import { TeamWorkloadWidget } from "./team-workload-widget";
 import { WhatsNewWidget } from "./whats-new-widget";
 import { useDashboardStore } from "./dashboard-store";
+import { Sparkline } from "../common/sparkline";
 import {
   Bar,
   BarChart,
@@ -97,6 +98,10 @@ interface DashboardData {
 
 export function DashboardView() {
   const { data, isLoading } = useQueryState<DashboardData>("dashboard");
+  const { data: trendsData } = useQueryState<{ trends: Record<string, { date: string; value: number }[]>; days: number }>(
+    "dashboard-kpi-trends",
+    "/api/portal/dashboard/kpi-trends"
+  );
   const nav = useNav();
   const selectedDate = useDashboardStore((s) => s.selectedDate);
   const setSelectedDate = useDashboardStore((s) => s.setSelectedDate);
@@ -153,6 +158,7 @@ export function DashboardView() {
           hint={`${data.kpis.activeClients} active`}
           tone="violet"
           onClick={() => nav.setView("clients")}
+          spark={trendsData?.trends?.totalClients?.map((d) => d.value)}
         />
         <KpiCard
           icon={Inbox}
@@ -161,6 +167,7 @@ export function DashboardView() {
           hint={`${data.kpis.unassignedComms} unassigned · ${data.kpis.unmatched} unmatched`}
           tone="sky"
           onClick={() => nav.setView("inbox")}
+          spark={trendsData?.trends?.openComms?.map((d) => d.value)}
         />
         <KpiCard
           icon={KanbanSquare}
@@ -169,6 +176,7 @@ export function DashboardView() {
           hint={`${data.kpis.overdueTasks} overdue tasks`}
           tone={data.kpis.overdueTasks > 0 ? "rose" : "emerald"}
           onClick={() => nav.setView("projects")}
+          spark={trendsData?.trends?.activeProjects?.map((d) => d.value)}
         />
         <KpiCard
           icon={CheckCircle2}
@@ -177,6 +185,7 @@ export function DashboardView() {
           hint="Awaiting client decision"
           tone="amber"
           onClick={() => nav.setView("approvals")}
+          spark={trendsData?.trends?.pendingApprovals?.map((d) => d.value)}
         />
       </div>
 
@@ -470,6 +479,7 @@ function KpiCard({
   hint,
   tone,
   onClick,
+  spark,
 }: {
   icon: LucideIcon;
   label: string;
@@ -477,6 +487,7 @@ function KpiCard({
   hint: string;
   tone: "violet" | "sky" | "emerald" | "amber" | "rose";
   onClick?: () => void;
+  spark?: number[];
 }) {
   const toneRing: Record<string, string> = {
     violet: "text-accent-foreground bg-accent",
@@ -506,7 +517,12 @@ function KpiCard({
           <Icon className="h-3.5 w-3.5" />
         </span>
       </div>
-      <p className="relative mt-1 text-[11px] text-muted-foreground">{hint}</p>
+      <div className="relative mt-1 flex items-end justify-between gap-2">
+        <p className="text-[11px] text-muted-foreground">{hint}</p>
+        {spark && spark.length > 1 && (
+          <Sparkline data={spark} width={70} height={20} className="opacity-60 group-hover:opacity-100 transition-opacity" />
+        )}
+      </div>
     </button>
   );
 }

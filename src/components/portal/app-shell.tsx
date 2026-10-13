@@ -193,16 +193,25 @@ function Sidebar({
         </nav>
 
         {!collapsed && (
-          <div className="m-2 rounded-lg border border-sidebar-border bg-sidebar-accent/40 p-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Storage
-            </p>
-            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-sidebar-border">
-              <div className="h-full w-[34%] rounded-full bg-primary" />
+          <div className="m-2 space-y-2">
+            <div className="rounded-lg border border-sidebar-border bg-sidebar-accent/40 p-2.5">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                Workspace
+              </p>
+              <p className="mt-0.5 truncate text-xs font-semibold">Onboard With Us</p>
+              <p className="truncate text-[10px] text-muted-foreground">3 members · Free plan</p>
             </div>
-            <p className="mt-1.5 text-[11px] text-muted-foreground">
-              343 MB of 1 GB used
-            </p>
+            <div className="rounded-lg border border-sidebar-border bg-sidebar-accent/40 p-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Storage
+              </p>
+              <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-sidebar-border">
+                <div className="h-full w-[34%] rounded-full bg-primary" />
+              </div>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                343 MB of 1 GB used
+              </p>
+            </div>
           </div>
         )}
       </aside>
