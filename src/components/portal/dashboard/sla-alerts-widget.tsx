@@ -11,6 +11,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useQueryState } from "@/components/portal/query-hooks";
 import { useNav } from "@/components/portal/nav-store";
 import { cn } from "@/lib/utils";
@@ -22,8 +27,10 @@ interface SlaItem {
   accentColor: string;
   ownerName: string | null;
   ageHours: number;
+  wallAgeHours: number;
   channel: string;
   subject: string;
+  occurredAt: string;
 }
 
 interface SlaResponse {
@@ -143,9 +150,18 @@ function SlaRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
           <p className="truncate text-xs font-medium">{item.clientName}</p>
-          <span className={cn("shrink-0 font-mono text-[11px] tabular", isBreach ? "text-rose-foreground" : "text-amber-foreground")}>
-            {item.ageHours}h
-          </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className={cn("shrink-0 cursor-help font-mono text-[11px] tabular", isBreach ? "text-rose-foreground" : "text-amber-foreground")}>
+                {item.ageHours}h
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="text-xs">
+              <p className="font-medium">{item.ageHours}h business hours</p>
+              <p className="text-muted-foreground">{item.wallAgeHours}h wall-clock</p>
+              <p className="text-[10px] text-muted-foreground">Since {new Date(item.occurredAt).toLocaleString()}</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
         <p className="truncate text-[10px] text-muted-foreground capitalize">
           {item.channel} · {item.subject || "No subject"}

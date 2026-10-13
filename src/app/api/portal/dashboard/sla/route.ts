@@ -20,6 +20,36 @@ export async function GET() {
   const SLA_BREACH_HOURS = 8;
   const hourMs = 60 * 60 * 1000;
 
+  /**
+   * Business-hours-aware age calculation. Counts only weekdays (Mon-Fri)
+   * and business hours (9:00–18:00). Weekends and off-hours don't count
+   * toward the SLA clock. This gives a more realistic "response time"
+   * metric than raw wall-clock.
+   */
+  function businessHoursBetween(from: Date, to: Date): number {
+    let totalMs = 0;
+    const cursor = new Date(from);
+    while (cursor < to) {
+      const day = cursor.getDay(); // 0=Sun, 6=Sat
+      const hour = cursor.getHours();
+      const isWeekday = day >= 1 && day <= 5;
+      const isBusinessHour = hour >= 9 && hour < 18;
+      if (isWeekday && isBusinessHour) {
+        // Add time until the next hour boundary or `to`, whichever is sooner
+        const nextHour = new Date(cursor);
+        nextHour.setMinutes(0, 0, 0);
+        nextHour.setHours(hour + 1);
+        const sliceEnd = nextHour < to ? nextHour : to;
+        totalMs += sliceEnd.getTime() - cursor.getTime();
+        cursor.setTime(sliceEnd.getTime());
+      } else {
+        // Skip to the next hour
+        cursor.setHours(hour + 1, 0, 0, 0);
+      }
+    }
+    return totalMs / hourMs;
+  }
+
   // All open inbound comms with their client
   const openInbound = await db.communication.findMany({
     where: {
@@ -48,7 +78,8 @@ export async function GET() {
 
   for (const [, comm] of oldestPerClient) {
     if (!comm.client) continue;
-    const ageHours = (now.getTime() - comm.occurredAt.getTime()) / hourMs;
+    const ageHours = businessHoursBetween(comm.occurredAt, now);
+    const wallAgeHours = (now.getTime() - comm.occurredAt.getTime()) / hourMs;
     const entry = {
       clientId: comm.client.id,
       clientName: comm.client.name,
@@ -56,8 +87,10 @@ export async function GET() {
       accentColor: comm.client.accentColor,
       ownerName: comm.client.owner?.fullName ?? null,
       ageHours: Math.round(ageHours * 10) / 10,
+      wallAgeHours: Math.round(wallAgeHours * 10) / 10,
       channel: comm.channel,
       subject: comm.subject || comm.bodyText.slice(0, 60),
+      occurredAt: comm.occurredAt.toISOString(),
     };
     if (ageHours >= SLA_BREACH_HOURS) {
       breaches.push(entry);

@@ -53,6 +53,7 @@ import { NextActionsWidget } from "./next-actions-widget";
 import { ActivityHeatmapWidget } from "./activity-heatmap-widget";
 import { OnboardingChecklistWidget } from "./onboarding-checklist-widget";
 import { SlaAlertsWidget } from "./sla-alerts-widget";
+import { TeamWorkloadWidget } from "./team-workload-widget";
 import { useDashboardStore } from "./dashboard-store";
 import {
   Bar,
@@ -446,8 +447,11 @@ export function DashboardView() {
         </Card>
       </div>
 
-      {/* Suggested next actions */}
-      <NextActionsWidget />
+      {/* Suggested next actions + Team workload */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <NextActionsWidget />
+        <TeamWorkloadWidget />
+      </div>
 
       {/* Activity heatmap */}
       <ActivityHeatmapWidget />

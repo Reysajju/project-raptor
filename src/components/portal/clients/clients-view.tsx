@@ -72,6 +72,7 @@ import { exportToCsv } from "@/lib/csv";
 import { usePersistentState } from "@/lib/use-persistent-state";
 import { EmptyState as EmptyStateCard } from "@/components/portal/common/empty-state";
 import { ImportClientsDialog } from "./import-dialog";
+import { TagsManagerButton } from "./tags-manager";
 
 interface TeamMember {
   id: string;
@@ -236,6 +237,7 @@ export function ClientsView() {
             <Download className="h-3.5 w-3.5" /> Export
           </Button>
           <ImportClientsButton />
+          <TagsManagerButton />
           <NewClientSheet />
         </div>
       </div>

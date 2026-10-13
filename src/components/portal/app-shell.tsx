@@ -23,6 +23,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -159,13 +160,21 @@ function Sidebar({
                 onClick={() => nav.setView(item.key)}
                 title={collapsed ? item.label : undefined}
                 className={cn(
-                  "group relative flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors",
+                  "group relative flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-all duration-200",
                   active
                     ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                    : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+                    : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground hover:translate-x-0.5"
                 )}
               >
-                <Icon className="h-4 w-4 shrink-0" />
+                {/* Active indicator bar */}
+                {active && (
+                  <motion.span
+                    layoutId="sidebar-active-indicator"
+                    className="absolute left-0 top-1/2 h-5 -translate-y-1/2 w-0.5 rounded-full bg-primary"
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  />
+                )}
+                <Icon className={cn("h-4 w-4 shrink-0 transition-transform", active && "scale-110")} />
                 {!collapsed && <span className="truncate">{item.label}</span>}
                 {!collapsed && item.badge ? (
                   <Badge

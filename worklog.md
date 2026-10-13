@@ -673,3 +673,72 @@ Unresolved issues / next-phase priorities:
 - Future: real-time WebSocket updates, per-client brand color theming on the
   relationship timeline nodes, SLA trend over time (improving/declining),
   a "team workload" view showing who's handling what.
+
+---
+Task ID: cron-round-8 (team workload + tags manager + SLA business hours + sidebar animation)
+Agent: lead (orchestrator) — cron-triggered webDevReview
+Task: Assess project status, QA via agent-browser, add new features
+(team workload, tags management), enhance SLA with business hours,
+improve sidebar styling.
+
+Work Log:
+- QA: all 9 views render without errors. Lint clean. Round 7 features
+  (relationship timeline, SLA alerts, heatmap filter, focus mode) confirmed.
+- NEW FEATURE: Team workload widget on dashboard.
+  - GET /api/portal/dashboard/team-workload → per-team-member counts:
+    owned clients, open comms, active tasks, overdue tasks. Sorted by
+    total active load (open comms + active tasks).
+  - TeamWorkloadWidget: avatar + name + email + load bar (relative to
+    busiest member) + stat chips (clients/open/tasks/overdue). Overloaded
+    members (>5 open or any overdue) get amber border. Owner gets a Crown
+    icon + primary-colored avatar.
+  - Wired into the dashboard in a 2-column grid alongside NextActionsWidget.
+  - VLM-verified: "3 members sorted by active load — Marcus Lee (8), Priya
+    Sharma (5), Alex Mercer (4), with progress bars and stat chips".
+- NEW FEATURE: Client tags management panel.
+  - GET /api/portal/tags → all unique tags across clients with counts +
+    client list. POST /api/portal/tags {action:"rename", from, to} renames/
+    merges a tag across all clients (dedupes). DELETE /api/portal/tags?name=X
+    removes a tag from all clients. Both write audit log entries.
+  - TagsManagerButton + TagsManagerDialog: search input, tag rows with
+    name + count + client avatar stack (popover with client link) +
+    rename (inline edit with Enter/Escape) + delete (confirm dialog).
+    Invalidates tags + clients queries after mutations.
+  - Wired into the clients view header (between Import and New client).
+  - VLM-verified: "Tag management dialog with tags (enterprise, retail,
+    healthcare, smb, design) with client counts, avatar initials, rename
+    and delete icons, and a search bar".
+- ENHANCEMENT: SLA business-hours awareness.
+  - Updated GET /api/portal/dashboard/sla with a businessHoursBetween()
+    helper that counts only weekdays (Mon-Fri) and business hours (9-18).
+    Weekends and off-hours don't count toward the SLA clock.
+  - API now returns both ageHours (business) and wallAgeHours (wall-clock)
+    + occurredAt timestamp.
+  - SlaAlertsWidget: the age number now has a tooltip showing "Xh business
+    hours / Yh wall-clock / Since <timestamp>".
+- STYLING: Sidebar nav active indicator animation.
+  - Active nav item now has an animated left bar (motion.span with layoutId
+    "sidebar-active-indicator") that slides between items with a spring
+    transition (stiffness 400, damping 30).
+  - Active icon scales to 110%.
+  - Inactive items translate-x-0.5 on hover for a subtle nudge.
+  - transition-all duration-200 on the button for smooth state changes.
+
+Stage Summary:
+- ALL 9 views render without errors (verified).
+- Lint: 0 errors, 0 warnings.
+- 2 new features: team workload widget, client tags management panel.
+- 2 enhancements: SLA business-hours awareness with tooltip, sidebar
+  active indicator animation (sliding bar + icon scale).
+- 4 new files: team-workload-widget.tsx, tags-manager.tsx,
+  dashboard/team-workload/route.ts, tags/route.ts.
+- VLM-verified: team workload (3 members, load bars), tags manager
+  (5 tags with avatars + rename/delete).
+
+Unresolved issues / next-phase priorities:
+- The team workload doesn't show a trend (could compare this week vs last).
+- The tags manager could support tag colors (visual differentiation).
+- The SLA business-hours calc is simplistic (no timezone, no holidays).
+- Future: client portal magic-link flow simulation, in-app notifications
+  preferences, per-client SLA config (different targets per client tier),
+  a "what's new" changelog widget, keyboard-driven tag assignment.
