@@ -603,3 +603,73 @@ Unresolved issues / next-phase priorities:
 - Future feature ideas: relationship timeline visualization (horizontal scroll),
   real-time WebSocket updates, per-client SLA tracking, in-app onboarding for
   new clients (not just team members), a "focus mode" that also dims the topbar.
+
+---
+Task ID: cron-round-7 (heatmap filter + relationship timeline + SLA tracking + focus mode)
+Agent: lead (orchestrator) — cron-triggered webDevReview
+Task: Assess project status, QA via agent-browser, add new features
+(relationship timeline, SLA tracking), enhance heatmap→feed filter,
+improve focus mode styling.
+
+Work Log:
+- QA: all 9 views render without errors. Lint clean. Round 6 features
+  (accent theming, health trend, interactive heatmap, onboarding) confirmed.
+- ENHANCEMENT: Heatmap day selection now filters the recent activity feed.
+  - Created shared dashboard-store.ts (Zustand) with selectedDate state +
+    toggleDate action so the heatmap widget and the recent activity feed can
+    communicate cross-widget.
+  - Updated ActivityHeatmapWidget to use the shared store instead of local
+    state. Clicking a day toggles selection globally.
+  - Updated DashboardView to filter recentComms by selectedDate. The activity
+    feed header shows a date filter chip (month/day + X button to clear) when
+    a date is selected, and the description changes to "N communications on
+    this day". Empty state: "No activity on this day" + "Show all activity".
+  - VLM-verified: "date filter chip Oct 10 with X button, 0 communications on this day".
+- NEW FEATURE: Relationship timeline visualization (horizontal scroll).
+  - GET /api/portal/clients/[id]/relationship → collects milestones from
+    client creation, first-of-channel comms, projects, completed milestones,
+    files, approvals (+ decisions), forms. Returns events[] sorted by date.
+  - RelationshipTimeline component: horizontal scrollable strip with a
+    connector line, color-coded circular nodes (icon per type), date label,
+    title, and detail. Left/right scroll buttons that enable/disable based on
+    scroll position.
+  - Wired into client detail between the health strip and the tabs.
+  - VLM-verified: "7 milestones over 2 days — First email, First portal message,
+    First internal note, Client added, Project started, File uploaded, Form".
+- NEW FEATURE: Per-client SLA tracking with breach alerts.
+  - GET /api/portal/dashboard/sla → for each client with open inbound comms,
+    computes age in hours. Breaches (>8h) and at-risk (>4h) are returned.
+    SLA target: 4h, breach threshold: 8h.
+  - SlaAlertsWidget: breach cards (rose border) + at-risk cards (amber border)
+    with client name, channel, subject, age hours. Click-to-navigate to client.
+    Healthy state: "SLA healthy" with emerald checkmark. Shows top 5 with
+    "+N more · View inbox" overflow.
+  - Wired into the dashboard below the onboarding checklist.
+  - VLM-verified: "3 breached · 0 at risk, target 4h, lists Sofia Rinaldi,
+    David Chen, Eleanor Whitfield with elapsed times".
+- STYLING: Focus mode now also hides the topbar breadcrumbs.
+  - When focusMode is on, the breadcrumb trail is hidden (`{!focusMode && (...)}`),
+    giving full width to the action buttons for distraction-free work.
+  - Verified: breadcrumbs hidden in focus mode, restored on exit.
+
+Stage Summary:
+- ALL 9 views render without errors (verified).
+- Lint: 0 errors, 0 warnings.
+- 2 new features: relationship timeline (horizontal milestones), SLA breach
+  alerts with client-level tracking.
+- 2 enhancements: heatmap→activity feed cross-widget filter via shared store,
+  focus mode hides breadcrumbs for full immersion.
+- 5 new files: dashboard-store.ts, relationship-timeline.tsx, sla-alerts-widget.tsx,
+  clients/[id]/relationship/route.ts, dashboard/sla/route.ts.
+- VLM-verified: SLA "3 breached · 0 at risk", relationship timeline "7 milestones",
+  heatmap filter chip "Oct 10", focus mode hides breadcrumbs.
+
+Unresolved issues / next-phase priorities:
+- The heatmap filter only filters the dashboard's recentComms (last 12) — could
+  fetch all comms for the selected day for a more complete view.
+- The SLA tracking is wall-clock based — could add business-hours awareness
+  (exclude nights/weekends) for a more realistic SLA.
+- The relationship timeline could be made zoomable (day/week/month granularity).
+- Future: real-time WebSocket updates, per-client brand color theming on the
+  relationship timeline nodes, SLA trend over time (improving/declining),
+  a "team workload" view showing who's handling what.

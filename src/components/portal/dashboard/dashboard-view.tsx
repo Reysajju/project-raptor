@@ -36,6 +36,8 @@ import {
   Phone,
   Globe,
   StickyNote,
+  Calendar as CalendarIcon,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -50,6 +52,8 @@ import { CountUp } from "../common/count-up";
 import { NextActionsWidget } from "./next-actions-widget";
 import { ActivityHeatmapWidget } from "./activity-heatmap-widget";
 import { OnboardingChecklistWidget } from "./onboarding-checklist-widget";
+import { SlaAlertsWidget } from "./sla-alerts-widget";
+import { useDashboardStore } from "./dashboard-store";
 import {
   Bar,
   BarChart,
@@ -92,6 +96,8 @@ interface DashboardData {
 export function DashboardView() {
   const { data, isLoading } = useQueryState<DashboardData>("dashboard");
   const nav = useNav();
+  const selectedDate = useDashboardStore((s) => s.selectedDate);
+  const setSelectedDate = useDashboardStore((s) => s.setSelectedDate);
 
   if (isLoading || !data) {
     return <DashboardSkeleton />;
@@ -107,6 +113,10 @@ export function DashboardView() {
   );
 
   const totalByChannel = channelData.reduce((s, c) => s + c.count, 0) || 1;
+
+  const filteredComms = selectedDate
+    ? data.recentComms.filter((c) => c.occurredAt.slice(0, 10) === selectedDate)
+    : data.recentComms;
 
   return (
     <div className="space-y-5">
@@ -171,14 +181,34 @@ export function DashboardView() {
       {/* Onboarding checklist (auto-hides when complete) */}
       <OnboardingChecklistWidget />
 
+      {/* SLA alerts */}
+      <SlaAlertsWidget />
+
       {/* Recent activity + channel mix */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
-              <CardTitle className="text-sm font-medium">Recent activity</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                Recent activity
+                {selectedDate && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-normal text-primary">
+                    <CalendarIcon className="h-2.5 w-2.5" />
+                    {new Date(selectedDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    <button
+                      onClick={() => setSelectedDate(null)}
+                      className="ml-0.5 rounded-full hover:bg-primary/20"
+                      aria-label="Clear date filter"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </span>
+                )}
+              </CardTitle>
               <CardDescription className="text-xs">
-                Latest communications across all clients
+                {selectedDate
+                  ? `${filteredComms.length} communication${filteredComms.length === 1 ? "" : "s"} on this day`
+                  : "Latest communications across all clients"}
               </CardDescription>
             </div>
             <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => nav.setView("inbox")}>
@@ -186,8 +216,19 @@ export function DashboardView() {
             </Button>
           </CardHeader>
           <CardContent className="p-0">
+            {filteredComms.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <CalendarIcon className="h-4 w-4" />
+                </div>
+                <p className="text-sm font-medium">No activity on this day</p>
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setSelectedDate(null)}>
+                  Show all activity
+                </Button>
+              </div>
+            ) : (
             <ul className="divide-y divide-border">
-              {data.recentComms.slice(0, 8).map((c, i) => {
+              {filteredComms.slice(0, 12).map((c, i) => {
                 const meta = channelMeta[c.channel as ChannelKind] ?? channelMeta.system;
                 const clientName = c.client?.name ?? "Unmatched sender";
                 return (
@@ -241,6 +282,7 @@ export function DashboardView() {
                 );
               })}
             </ul>
+            )}
           </CardContent>
         </Card>
 

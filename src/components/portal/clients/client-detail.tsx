@@ -12,6 +12,7 @@ import { ChannelIcon } from "@/components/portal/common/channel-icon";
 import { AiSummaryDialog, AiDraftButton } from "@/components/portal/common/ai-assistant";
 import { PortalPreviewButton } from "@/components/portal/common/portal-preview";
 import { HealthScoreWidget } from "@/components/portal/common/health-score-widget";
+import { RelationshipTimeline } from "@/components/portal/common/relationship-timeline";
 import { accentGradient, ACCENT_DOT, resolveAccent } from "@/lib/accent";
 import { cn } from "@/lib/utils";
 import {
@@ -412,6 +413,9 @@ export function ClientDetail({ clientId }: { clientId: string }) {
 
       {/* Health strip */}
       <HealthStrip health={health} />
+
+      {/* Relationship timeline (horizontal milestones) */}
+      <RelationshipTimeline clientId={clientId} />
 
       {/* Tabs + sidebar layout */}
       <Tabs

@@ -223,7 +223,8 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
         <Menu className="h-4 w-4" />
       </Button>
 
-      {/* Breadcrumbs / trail */}
+      {/* Breadcrumbs / trail (hidden in focus mode) */}
+      {!focusMode && (
       <nav className="flex min-w-0 items-center gap-1.5 text-sm">
         {nav.trail.map((t, i) => (
           <React.Fragment key={i}>
@@ -245,6 +246,7 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
           </React.Fragment>
         ))}
       </nav>
+      )}
 
       <div className="ml-auto flex items-center gap-1.5">
         <Button

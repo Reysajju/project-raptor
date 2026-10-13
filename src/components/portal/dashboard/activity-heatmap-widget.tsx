@@ -9,6 +9,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQueryState } from "@/components/portal/query-hooks";
+import { useDashboardStore } from "./dashboard-store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +32,9 @@ export function ActivityHeatmapWidget() {
     "dashboard-heatmap",
     "/api/portal/dashboard/heatmap"
   );
-  const [selectedDate, setSelectedDate] = React.useState<string | null>(null);
+  const selectedDate = useDashboardStore((s) => s.selectedDate);
+  const toggleDate = useDashboardStore((s) => s.toggleDate);
+  const setSelectedDate = useDashboardStore((s) => s.setSelectedDate);
 
   if (isLoading || !data) {
     return (
@@ -115,7 +118,7 @@ export function ActivityHeatmapWidget() {
                         <button
                           onClick={() => {
                             if (day.count > 0) {
-                              setSelectedDate(selectedDate === day.date ? null : day.date);
+                              toggleDate(day.date);
                             }
                           }}
                           className={cn(
