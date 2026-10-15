@@ -68,13 +68,15 @@ export default function Page() {
     setMounted(true);
   }, []);
 
-  // Check for ?token= in URL (magic link verification)
+  const [verifying, setVerifying] = React.useState(false);
+
+  // Check for ?token= in URL (magic link or invitation verification)
   React.useEffect(() => {
     if (!mounted) return;
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
-    if (token && !isAuthenticated) {
-      // Verify the token via API
+    if (token) {
+      setVerifying(true);
       (async () => {
         try {
           const res = await fetch("/api/auth/verify-magic-link", {
@@ -87,19 +89,29 @@ export default function Page() {
             useAuth.getState().setSession(data.sessionToken, data.user);
             // Clean the URL
             window.history.replaceState({}, "", window.location.pathname);
-            window.location.reload();
+            setVerifying(false);
+          } else {
+            console.error("Verification error:", data.error);
+            setVerifying(false);
           }
         } catch (err) {
           console.error("Magic link verification failed", err);
+          setVerifying(false);
         }
       })();
     }
-  }, [mounted, isAuthenticated]);
+  }, [mounted]);
 
-  if (!mounted) {
+  if (!mounted || verifying) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background gap-3">
+        <div className="h-9 w-9 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        {verifying && (
+          <div className="text-center">
+            <p className="text-sm font-medium">Verifying your invitation & email ownership…</p>
+            <p className="text-xs text-muted-foreground mt-1">Activating your project workspace access</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -128,15 +140,28 @@ export default function Page() {
   );
 }
 
-function BootstrapUser({ user }: { user: { email: string; fullName: string; role: string } | null }) {
+function BootstrapUser({
+  user,
+}: {
+  user: {
+    id?: string;
+    email: string;
+    fullName: string;
+    role: string;
+    clientId?: string | null;
+    clientName?: string | null;
+  } | null;
+}) {
   const setUser = useCurrentUser((s) => s.setUser);
   React.useEffect(() => {
     if (user) {
       setUser({
-        id: user.email,
+        id: user.id || user.email,
         email: user.email,
         fullName: user.fullName,
-        role: user.role as "owner" | "admin" | "client",
+        role: user.role as "owner" | "admin" | "member" | "client",
+        clientId: user.clientId,
+        clientName: user.clientName,
       });
     }
   }, [user, setUser]);

@@ -3,13 +3,21 @@
 import * as React from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { UserPlus, Loader2 } from "lucide-react";
+import { UserPlus, Loader2, Copy, Check, Mail } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -28,7 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { useQueryState } from "@/components/portal/query-hooks";
+import { useQueryState, apiPost } from "@/components/portal/query-hooks";
 import { initials, relativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { TeamResponse } from "./types";
@@ -36,6 +44,8 @@ import type { TeamResponse } from "./types";
 const ROLE_BADGE: Record<string, string> = {
   owner: "bg-primary text-primary-foreground border-transparent",
   admin: "bg-secondary text-secondary-foreground border-transparent",
+  member: "bg-sky text-sky-foreground border-transparent",
+  client: "bg-emerald text-emerald-foreground border-transparent",
 };
 
 export function TeamTab() {
@@ -143,62 +153,172 @@ function InviteDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const qc = useQueryClient();
   const [email, setEmail] = React.useState("");
+  const [fullName, setFullName] = React.useState("");
+  const [role, setRole] = React.useState("member");
   const [sending, setSending] = React.useState(false);
+  const [inviteResult, setInviteResult] = React.useState<{
+    inviteLink?: string;
+    emailSent?: boolean;
+    name: string;
+    email: string;
+  } | null>(null);
+  const [copied, setCopied] = React.useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const copyLink = () => {
+    if (!inviteResult?.inviteLink) return;
+    navigator.clipboard.writeText(inviteResult.inviteLink);
+    setCopied(true);
+    toast.success("Link copied!");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
     setSending(true);
-    setTimeout(() => {
+    try {
+      const res = await apiPost<{
+        ok: boolean;
+        member: any;
+        inviteLink?: string;
+        emailSent?: boolean;
+        message?: string;
+      }>("/api/portal/team", {
+        email: email.trim(),
+        fullName: fullName.trim() || undefined,
+        role,
+      });
+
+      qc.invalidateQueries({ queryKey: ["team"] });
+
+      if (res.emailSent) {
+        toast.success(`Invitation email sent to ${email.trim()}!`);
+        setEmail("");
+        setFullName("");
+        onOpenChange(false);
+      } else if (res.inviteLink) {
+        setInviteResult({
+          inviteLink: res.inviteLink,
+          emailSent: false,
+          name: fullName || email.split("@")[0],
+          email: email.trim(),
+        });
+      } else {
+        toast.success("Team member invited successfully.");
+        setEmail("");
+        setFullName("");
+        onOpenChange(false);
+      }
+    } catch (err) {
+      toast.error("Failed to send invitation", {
+        description: (err as Error).message,
+      });
+    } finally {
       setSending(false);
-      setEmail("");
-      onOpenChange(false);
-      toast.success("Invite sent (demo)");
-    }, 600);
+    }
+  };
+
+  const closeAll = () => {
+    setInviteResult(null);
+    setEmail("");
+    setFullName("");
+    onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) closeAll(); else onOpenChange(v); }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-base">Invite team member</DialogTitle>
           <DialogDescription className="text-xs">
-            Invite a colleague to collaborate on this workspace. (Demo only —
-            no real invite is sent.)
+            Invite a collaborator to access and manage project tasks in this workspace.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={submit} className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="invite-email">Email</Label>
-            <Input
-              id="invite-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="colleague@onboardwithus.com"
-              required
-            />
+
+        {inviteResult ? (
+          <div className="space-y-3 py-2 text-xs">
+            <div className="rounded-lg bg-muted/50 p-3 space-y-1">
+              <p className="font-semibold text-foreground">Invitation generated for {inviteResult.email}</p>
+              <p className="text-muted-foreground text-[11px]">
+                Copy this link to allow them to verify their account and join immediately:
+              </p>
+            </div>
+            {inviteResult.inviteLink && (
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={inviteResult.inviteLink}
+                  className="text-xs font-mono h-8 bg-background"
+                />
+                <Button size="sm" className="h-8 shrink-0 gap-1.5" onClick={copyLink}>
+                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? "Copied" : "Copy"}
+                </Button>
+              </div>
+            )}
+            <DialogFooter>
+              <Button onClick={closeAll} className="w-full">
+                Done
+              </Button>
+            </DialogFooter>
           </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={sending || !email.trim()}>
-              {sending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Sending…
-                </>
-              ) : (
-                "Send invite"
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
+        ) : (
+          <form onSubmit={submit} className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-name">Full Name</Label>
+              <Input
+                id="invite-name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="e.g. Sarah Connor"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-email">Email Address *</Label>
+              <Input
+                id="invite-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="colleague@domain.com"
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-role">Role</Label>
+              <Select value={role} onValueChange={setRole}>
+                <SelectTrigger id="invite-role" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="member">Member (Collaborator)</SelectItem>
+                  <SelectItem value="admin">Admin (Manager)</SelectItem>
+                  <SelectItem value="client">Client (Guest)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={sending || !email.trim()}>
+                {sending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> Sending…
+                  </>
+                ) : (
+                  "Send invite"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );

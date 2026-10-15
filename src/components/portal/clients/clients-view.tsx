@@ -55,6 +55,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   Plus,
   Search,
@@ -67,6 +68,12 @@ import {
   Upload,
   Users,
   Trash2,
+  Mail,
+  Copy,
+  Check,
+  CheckCircle2,
+  Send,
+  UserPlus,
 } from "lucide-react";
 import { exportToCsv } from "@/lib/csv";
 import { usePersistentState } from "@/lib/use-persistent-state";
@@ -825,21 +832,52 @@ function BulkActionBar({
   );
 }
 
+interface ProjectOption {
+  id: string;
+  title: string;
+  client?: { name: string };
+}
+
 function NewClientSheet() {
   const qc = useQueryClient();
   const user = useCurrentUser((s) => s.user);
   const { data: teamData } = useQueryState<TeamResponse>("team", "/api/portal/team");
+  const { data: projectsData } = useQueryState<{ projects: ProjectOption[] }>(
+    "projects",
+    "/api/portal/projects"
+  );
+
   const team = teamData?.team ?? [];
+  const projects = projectsData?.projects ?? [];
+
   const [open, setOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+
+  // Result dialog state when client / member invited
+  const [inviteResult, setInviteResult] = React.useState<{
+    name: string;
+    email: string;
+    role: string;
+    inviteLink?: string;
+    emailSent: boolean;
+    projectName?: string;
+    taskTitle?: string;
+  } | null>(null);
+  const [copied, setCopied] = React.useState(false);
+
   const [form, setForm] = React.useState({
     name: "",
+    email: "",
+    role: "client" as "client" | "member",
     company: "",
-    status: "prospect" as "active" | "prospect" | "churned" | "paused",
+    status: "active" as "active" | "prospect" | "churned" | "paused",
     tags: "",
     ownerId: "",
     accentColor: "violet" as "violet" | "emerald" | "sky" | "amber" | "rose",
     notes: "",
+    projectId: "",
+    taskTitle: "",
+    sendInvite: true,
   });
 
   // Reset form when opening
@@ -848,26 +886,53 @@ function NewClientSheet() {
     if (v) {
       setForm({
         name: "",
+        email: "",
+        role: "client",
         company: "",
-        status: "prospect",
+        status: "active",
         tags: "",
         ownerId: user?.id ?? "",
         accentColor: "violet",
         notes: "",
+        projectId: "",
+        taskTitle: "",
+        sendInvite: true,
       });
     }
+  };
+
+  const copyInviteLink = () => {
+    if (!inviteResult?.inviteLink) return;
+    navigator.clipboard.writeText(inviteResult.inviteLink);
+    setCopied(true);
+    toast.success("Invitation link copied to clipboard!");
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) {
-      toast.error("Client name is required.");
+      toast.error("Name is required.");
+      return;
+    }
+    if (form.sendInvite && !form.email.trim()) {
+      toast.error("Valid email is required to send invitation.");
       return;
     }
     setSubmitting(true);
     try {
-      await apiPost("/api/portal/clients", {
+      const res = await apiPost<{
+        ok: boolean;
+        client?: any;
+        profile?: any;
+        task?: any;
+        inviteLink?: string;
+        emailSent?: boolean;
+        message?: string;
+      }>("/api/portal/clients", {
         name: form.name.trim(),
+        email: form.email.trim() || undefined,
+        role: form.role,
         company: form.company.trim() || undefined,
         status: form.status,
         tags: form.tags
@@ -877,14 +942,42 @@ function NewClientSheet() {
         ownerId: form.ownerId || null,
         accentColor: form.accentColor,
         notes: form.notes,
+        projectId: form.projectId || undefined,
+        taskTitle: form.taskTitle.trim() || undefined,
+        sendInvite: form.sendInvite,
         actorId: user?.id ?? null,
       });
-      toast.success(`Client “${form.name.trim()}” created.`);
+
+      const selectedProj = projects.find((p) => p.id === form.projectId);
+
+      toast.success(
+        res.emailSent
+          ? `Invitation sent to ${form.email.trim()}!`
+          : `Client “${form.name.trim()}” created successfully.`
+      );
+
       qc.invalidateQueries({ queryKey: ["clients"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["team"] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+
       setOpen(false);
+
+      // If invite link generated, show the invitation result dialog
+      if (res.inviteLink) {
+        setInviteResult({
+          name: form.name.trim(),
+          email: form.email.trim(),
+          role: form.role,
+          inviteLink: res.inviteLink,
+          emailSent: !!res.emailSent,
+          projectName: selectedProj?.title,
+          taskTitle: form.taskTitle.trim() || undefined,
+        });
+      }
     } catch (err) {
-      toast.error("Could not create client.", {
+      toast.error("Could not create client or send invite.", {
         description: err instanceof Error ? err.message : undefined,
       });
     } finally {
@@ -893,116 +986,329 @@ function NewClientSheet() {
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetTrigger asChild>
-        <Button size="sm">
-          <Plus className="mr-1.5 h-3.5 w-3.5" /> New client
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="right" className="w-full sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>New client</SheetTitle>
-          <SheetDescription>
-            Create a client record. You can fill in details and contacts later.
-          </SheetDescription>
-        </SheetHeader>
-        <form onSubmit={submit} className="flex-1 space-y-4 overflow-y-auto px-4 py-4 scrollbar-thin">
-          <div className="space-y-1.5">
-            <Label htmlFor="nc-name">Name *</Label>
-            <Input
-              id="nc-name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Eleanor Whitfield"
-              autoFocus
-              required
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="nc-company">Company</Label>
-            <Input
-              id="nc-company"
-              value={form.company}
-              onChange={(e) => setForm({ ...form, company: e.target.value })}
-              placeholder="Northwind Traders"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="nc-status">Status</Label>
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as typeof form.status })}>
-                <SelectTrigger id="nc-status" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="prospect">Prospect</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="paused">Paused</SelectItem>
-                  <SelectItem value="churned">Churned</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="nc-accent">Accent</Label>
-              <Select value={form.accentColor} onValueChange={(v) => setForm({ ...form, accentColor: v as typeof form.accentColor })}>
-                <SelectTrigger id="nc-accent" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="violet">Violet</SelectItem>
-                  <SelectItem value="emerald">Emerald</SelectItem>
-                  <SelectItem value="sky">Sky</SelectItem>
-                  <SelectItem value="amber">Amber</SelectItem>
-                  <SelectItem value="rose">Rose</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="nc-tags">Tags</Label>
-            <Input
-              id="nc-tags"
-              value={form.tags}
-              onChange={(e) => setForm({ ...form, tags: e.target.value })}
-              placeholder="enterprise, retail"
-            />
-            <p className="text-[11px] text-muted-foreground">Comma-separated.</p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="nc-owner">Owner</Label>
-            <Select value={form.ownerId} onValueChange={(v) => setForm({ ...form, ownerId: v })}>
-              <SelectTrigger id="nc-owner" className="w-full">
-                <SelectValue placeholder="Unassigned" />
-              </SelectTrigger>
-              <SelectContent>
-                {team.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.fullName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="nc-notes">Notes</Label>
-            <Textarea
-              id="nc-notes"
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              placeholder="Internal notes…"
-              rows={3}
-            />
-          </div>
-        </form>
-        <SheetFooter>
-          <SheetClose asChild>
-            <Button type="button" variant="outline">Cancel</Button>
-          </SheetClose>
-          <Button onClick={submit} disabled={submitting}>
-            {submitting ? "Creating…" : "Create client"}
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetTrigger asChild>
+          <Button size="sm">
+            <Plus className="mr-1.5 h-3.5 w-3.5" /> New client
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </SheetTrigger>
+        <SheetContent side="right" className="w-full sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Add Client & Send Invitation</SheetTitle>
+            <SheetDescription>
+              Invite a client or member to your portal. They will receive a link to verify their account and access their workspace.
+            </SheetDescription>
+          </SheetHeader>
+          <form onSubmit={submit} className="flex-1 space-y-4 overflow-y-auto px-4 py-4 scrollbar-thin">
+            {/* Role selection */}
+            <div className="space-y-1.5">
+              <Label>Access Role *</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, role: "client" })}
+                  className={cn(
+                    "flex flex-col items-start gap-1 p-2.5 rounded-lg border text-left transition-all",
+                    form.role === "client"
+                      ? "border-primary bg-primary/10 text-primary-foreground font-medium"
+                      : "border-border hover:bg-muted/50 text-muted-foreground"
+                  )}
+                >
+                  <span className="text-xs font-semibold text-foreground">Client</span>
+                  <span className="text-[11px] leading-tight">External client with restricted portal & approvals access</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, role: "member" })}
+                  className={cn(
+                    "flex flex-col items-start gap-1 p-2.5 rounded-lg border text-left transition-all",
+                    form.role === "member"
+                      ? "border-primary bg-primary/10 text-primary-foreground font-medium"
+                      : "border-border hover:bg-muted/50 text-muted-foreground"
+                  )}
+                >
+                  <span className="text-xs font-semibold text-foreground">Team Member</span>
+                  <span className="text-[11px] leading-tight">Collaborator assigned to project tasks & management</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="nc-name">Full Name *</Label>
+              <Input
+                id="nc-name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="e.g. John Doe"
+                autoFocus
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="nc-email">Email Address *</Label>
+              <div className="relative">
+                <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="nc-email"
+                  type="email"
+                  className="pl-9"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="client@company.com"
+                  required
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                An invitation magic link will be generated for account & email verification.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="nc-company">Company / Organization</Label>
+              <Input
+                id="nc-company"
+                value={form.company}
+                onChange={(e) => setForm({ ...form, company: e.target.value })}
+                placeholder="Acme Corp"
+              />
+            </div>
+
+            {/* Project & Task Assignment */}
+            <div className="rounded-lg border border-border/80 bg-muted/20 p-3 space-y-3">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                <KanbanSquare className="h-3.5 w-3.5 text-primary" />
+                Project & Task Assignment (Optional)
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="nc-project" className="text-xs">Assign to Project</Label>
+                <Select
+                  value={form.projectId}
+                  onValueChange={(v) => setForm({ ...form, projectId: v })}
+                >
+                  <SelectTrigger id="nc-project" className="w-full text-xs h-8">
+                    <SelectValue placeholder="Select project (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">None / Assign later</SelectItem>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.title} {p.client?.name ? `(${p.client.name})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {form.projectId && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="nc-task" className="text-xs">Assign Initial Task</Label>
+                  <Input
+                    id="nc-task"
+                    className="h-8 text-xs"
+                    value={form.taskTitle}
+                    onChange={(e) => setForm({ ...form, taskTitle: e.target.value })}
+                    placeholder="e.g. Complete onboarding intake questionnaire"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="nc-status">Status</Label>
+                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as typeof form.status })}>
+                  <SelectTrigger id="nc-status" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="prospect">Prospect</SelectItem>
+                    <SelectItem value="paused">Paused</SelectItem>
+                    <SelectItem value="churned">Churned</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="nc-accent">Accent Color</Label>
+                <Select value={form.accentColor} onValueChange={(v) => setForm({ ...form, accentColor: v as typeof form.accentColor })}>
+                  <SelectTrigger id="nc-accent" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="violet">Violet</SelectItem>
+                    <SelectItem value="emerald">Emerald</SelectItem>
+                    <SelectItem value="sky">Sky</SelectItem>
+                    <SelectItem value="amber">Amber</SelectItem>
+                    <SelectItem value="rose">Rose</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="nc-owner">Internal Account Owner</Label>
+              <Select value={form.ownerId} onValueChange={(v) => setForm({ ...form, ownerId: v })}>
+                <SelectTrigger id="nc-owner" className="w-full">
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  {team.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.fullName} ({m.role})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="nc-tags">Tags</Label>
+              <Input
+                id="nc-tags"
+                value={form.tags}
+                onChange={(e) => setForm({ ...form, tags: e.target.value })}
+                placeholder="vip, retainer, onboarded"
+              />
+              <p className="text-[11px] text-muted-foreground">Comma-separated.</p>
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-medium cursor-pointer">Send Email Invitation</Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Send email with verification link immediately
+                </p>
+              </div>
+              <Switch
+                checked={form.sendInvite}
+                onCheckedChange={(checked) => setForm({ ...form, sendInvite: checked })}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="nc-notes">Internal Notes</Label>
+              <Textarea
+                id="nc-notes"
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                placeholder="Any special onboarding notes…"
+                rows={2}
+              />
+            </div>
+          </form>
+          <SheetFooter>
+            <SheetClose asChild>
+              <Button type="button" variant="outline">Cancel</Button>
+            </SheetClose>
+            <Button onClick={submit} disabled={submitting}>
+              {submitting ? (
+                <>
+                  <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  Creating & Inviting…
+                </>
+              ) : (
+                <>
+                  <Send className="mr-1.5 h-3.5 w-3.5" />
+                  Create & Invite
+                </>
+              )}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* Invitation Result Modal */}
+      {inviteResult && (
+        <Dialog open={!!inviteResult} onOpenChange={(v) => { if (!v) setInviteResult(null); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary mb-2">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+              <DialogTitle className="text-center text-lg">
+                {inviteResult.emailSent ? "Invitation Email Sent!" : "Account Ready & Link Generated"}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-3 py-2 text-xs">
+              <div className="rounded-lg bg-muted/50 p-3 space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Recipient:</span>
+                  <span className="font-semibold">{inviteResult.name} ({inviteResult.email})</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Role:</span>
+                  <Badge variant="outline" className="text-[10px] uppercase font-bold">
+                    {inviteResult.role === "client" ? "Client" : "Team Member"}
+                  </Badge>
+                </div>
+                {inviteResult.projectName && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Assigned Project:</span>
+                    <span className="font-medium">{inviteResult.projectName}</span>
+                  </div>
+                )}
+                {inviteResult.taskTitle && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Assigned Task:</span>
+                    <span className="font-medium">{inviteResult.taskTitle}</span>
+                  </div>
+                )}
+              </div>
+
+              {inviteResult.emailSent ? (
+                <p className="text-muted-foreground leading-relaxed">
+                  An email with a secure verification link was sent to <strong>{inviteResult.email}</strong>. Once they click the link, their email ownership is verified and they will gain immediate access to their project workspace.
+                </p>
+              ) : (
+                <p className="text-muted-foreground leading-relaxed">
+                  Email SMTP is not configured or in local demo mode. You can copy the invitation link below and send it to <strong>{inviteResult.name}</strong> directly:
+                </p>
+              )}
+
+              {inviteResult.inviteLink && (
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] text-muted-foreground">Invitation & Verification Link</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      readOnly
+                      value={inviteResult.inviteLink}
+                      className="text-xs font-mono h-8 bg-background selection:bg-primary"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-8 shrink-0 gap-1.5"
+                      onClick={copyInviteLink}
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="h-3.5 w-3.5" /> Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5" /> Copy Link
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Link expires in 7 days. Clicking verifies account & email ownership.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter className="mt-3">
+              <Button className="w-full" onClick={() => setInviteResult(null)}>
+                Done
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   );
 }
+

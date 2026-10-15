@@ -9,6 +9,8 @@ export interface AuthUser {
   fullName: string;
   role: string;
   isDemo: boolean;
+  clientId?: string | null;
+  clientName?: string | null;
 }
 
 interface AuthState {

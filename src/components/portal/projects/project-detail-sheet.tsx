@@ -10,6 +10,7 @@ import {
   Users,
   ListChecks,
   Paperclip,
+  Plus,
 } from "lucide-react";
 
 import {
@@ -24,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectTrigger,
@@ -35,7 +37,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
-import { apiGet, apiPatch } from "../query-hooks";
+import { apiGet, apiPatch, apiPost, useQueryState } from "../query-hooks";
 import { useNav } from "../nav-store";
 import { StatusBadge } from "../common/status-badge";
 import {
@@ -158,6 +160,65 @@ export function ProjectDetailSheet({
       }
     },
     [localTasks, projectId, qc]
+  );
+
+  const { data: teamData } = useQueryState<{ team: Array<{ id: string; fullName: string; role: string; email: string }> }>("team", "/api/portal/team");
+  const team = teamData?.team ?? [];
+
+  const [newTaskTitle, setNewTaskTitle] = React.useState("");
+  const [newTaskAssignee, setNewTaskAssignee] = React.useState("");
+  const [creatingTask, setCreatingTask] = React.useState(false);
+
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskTitle.trim() || !projectId) return;
+    setCreatingTask(true);
+    try {
+      await apiPost("/api/portal/tasks", {
+        projectId,
+        title: newTaskTitle.trim(),
+        assigneeId: newTaskAssignee || null,
+        status: "todo",
+      });
+      toast.success(`Task "${newTaskTitle.trim()}" added.`);
+      setNewTaskTitle("");
+      setNewTaskAssignee("");
+      refetch();
+      qc.invalidateQueries({ queryKey: ["projects"] });
+    } catch (err) {
+      toast.error("Failed to add task", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setCreatingTask(false);
+    }
+  };
+
+  const patchTaskAssignee = React.useCallback(
+    async (taskId: string, assigneeId: string | null) => {
+      if (!localTasks) return;
+      const targetMember = team.find((m) => m.id === assigneeId);
+      const prev = localTasks;
+      setLocalTasks(
+        prev.map((t) =>
+          t.id === taskId
+            ? { ...t, assignee: targetMember ? { id: targetMember.id, fullName: targetMember.fullName } : null }
+            : t
+        )
+      );
+      try {
+        await apiPatch(`/api/portal/tasks/${taskId}`, { assigneeId: assigneeId || null });
+        toast.success("Assignee updated");
+        qc.invalidateQueries({ queryKey: ["projects"] });
+        qc.invalidateQueries({ queryKey: ["project", projectId] });
+      } catch (err) {
+        setLocalTasks(prev);
+        toast.error("Failed to update assignee", {
+          description: err instanceof Error ? err.message : String(err),
+        });
+      }
+    },
+    [localTasks, projectId, qc, team]
   );
 
   // Milestone toggle — optimistic-only (no endpoint exists for now).
@@ -332,6 +393,39 @@ export function ProjectDetailSheet({
                   localTasks ? localTasks.length : project.tasks.length
                 }
               />
+
+              {/* Quick Add Task Form */}
+              <form onSubmit={handleCreateTask} className="mt-2.5 flex items-center gap-2">
+                <Input
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  placeholder="Add a new task…"
+                  className="h-8 text-xs flex-1"
+                />
+                <Select value={newTaskAssignee} onValueChange={setNewTaskAssignee}>
+                  <SelectTrigger className="h-8 w-[130px] text-xs">
+                    <SelectValue placeholder="Assignee (opt)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Unassigned</SelectItem>
+                    {team.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.fullName} ({m.role})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  type="submit"
+                  disabled={creatingTask || !newTaskTitle.trim()}
+                  className="h-8 text-xs shrink-0"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Add
+                </Button>
+              </form>
+
               <div className="mt-2 space-y-3">
                 {(["todo", "in_progress", "review", "done"] as const).map(
                   (status) => {
@@ -371,16 +465,40 @@ export function ProjectDetailSheet({
                                       {shortTime(t.dueDate)}
                                     </span>
                                   )}
-                                  {t.assignee && (
-                                    <span className="inline-flex items-center gap-1">
-                                      <Avatar className="h-3.5 w-3.5">
-                                        <AvatarFallback className="bg-muted text-[8px] text-foreground">
-                                          {initials(t.assignee.fullName) || "?"}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      {t.assignee.fullName}
-                                    </span>
-                                  )}
+                                  <Select
+                                    value={t.assignee?.id ?? "unassigned"}
+                                    onValueChange={(val) =>
+                                      patchTaskAssignee(
+                                        t.id,
+                                        val === "unassigned" ? null : val
+                                      )
+                                    }
+                                  >
+                                    <SelectTrigger className="h-5 px-1.5 py-0 text-[10px] gap-1 border-dashed border-border bg-muted/30 hover:bg-muted text-muted-foreground w-auto">
+                                      {t.assignee ? (
+                                        <span className="inline-flex items-center gap-1 text-foreground">
+                                          <Avatar className="h-3 w-3">
+                                            <AvatarFallback className="bg-primary/20 text-[7px] text-primary">
+                                              {initials(t.assignee.fullName) || "?"}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                          <span className="truncate max-w-[80px]">
+                                            {t.assignee.fullName}
+                                          </span>
+                                        </span>
+                                      ) : (
+                                        <span className="text-muted-foreground">Unassigned</span>
+                                      )}
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                                      {team.map((m) => (
+                                        <SelectItem key={m.id} value={m.id}>
+                                          {m.fullName} ({m.role})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
                                 </div>
                               </div>
                               <Select

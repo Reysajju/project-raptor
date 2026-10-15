@@ -58,6 +58,23 @@ export async function POST(req: Request) {
       });
     }
 
+    // Resolve or sync Profile (so task assignments, team listings, and client access work)
+    let profile = await db.profile.findUnique({
+      where: { email: user.email },
+      include: { client: true },
+    });
+
+    if (!profile) {
+      profile = await db.profile.create({
+        data: {
+          email: user.email,
+          fullName: user.fullName || user.email.split("@")[0],
+          role: user.role,
+        },
+        include: { client: true },
+      });
+    }
+
     // Update last login
     await db.user.update({
       where: { id: user.id },
@@ -81,17 +98,20 @@ export async function POST(req: Request) {
       ok: true,
       sessionToken,
       user: {
-        id: user.id,
+        id: profile.id,
+        userId: user.id,
         email: user.email,
-        fullName: user.fullName,
-        role: user.role,
+        fullName: profile.fullName || user.fullName,
+        role: profile.role || user.role,
+        clientId: profile.clientId,
+        clientName: profile.client?.name,
         isDemo: user.isDemo,
       },
     });
   } catch (err) {
     console.error("[auth/verify-magic-link]", err);
     return NextResponse.json(
-      { error: "Verification failed" },
+      { error: "Verification failed", details: (err as Error).message },
       { status: 500 }
     );
   }

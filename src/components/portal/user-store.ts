@@ -9,7 +9,9 @@ export interface CurrentUser {
   id: string;
   email: string;
   fullName: string;
-  role: "owner" | "admin" | "client";
+  role: "owner" | "admin" | "member" | "client";
+  clientId?: string | null;
+  clientName?: string | null;
 }
 
 interface UserState {
