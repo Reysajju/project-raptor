@@ -1084,14 +1084,14 @@ function NewClientSheet() {
               <div className="space-y-1.5">
                 <Label htmlFor="nc-project" className="text-xs">Assign to Project</Label>
                 <Select
-                  value={form.projectId}
-                  onValueChange={(v) => setForm({ ...form, projectId: v })}
+                  value={form.projectId || "none"}
+                  onValueChange={(v) => setForm({ ...form, projectId: v === "none" ? "" : v })}
                 >
                   <SelectTrigger id="nc-project" className="w-full text-xs h-8">
                     <SelectValue placeholder="Select project (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None / Assign later</SelectItem>
+                    <SelectItem value="none">None / Assign later</SelectItem>
                     {projects.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {p.title} {p.client?.name ? `(${p.client.name})` : ""}
@@ -1149,11 +1149,15 @@ function NewClientSheet() {
 
             <div className="space-y-1.5">
               <Label htmlFor="nc-owner">Internal Account Owner</Label>
-              <Select value={form.ownerId} onValueChange={(v) => setForm({ ...form, ownerId: v })}>
+              <Select
+                value={form.ownerId || "unassigned"}
+                onValueChange={(v) => setForm({ ...form, ownerId: v === "unassigned" ? "" : v })}
+              >
                 <SelectTrigger id="nc-owner" className="w-full">
                   <SelectValue placeholder="Unassigned" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
                   {team.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
                       {m.fullName} ({m.role})

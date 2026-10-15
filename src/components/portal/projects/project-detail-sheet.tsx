@@ -402,12 +402,15 @@ export function ProjectDetailSheet({
                   placeholder="Add a new task…"
                   className="h-8 text-xs flex-1"
                 />
-                <Select value={newTaskAssignee} onValueChange={setNewTaskAssignee}>
+                <Select
+                  value={newTaskAssignee || "unassigned"}
+                  onValueChange={(v) => setNewTaskAssignee(v === "unassigned" ? "" : v)}
+                >
                   <SelectTrigger className="h-8 w-[130px] text-xs">
                     <SelectValue placeholder="Assignee (opt)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
                     {team.map((m) => (
                       <SelectItem key={m.id} value={m.id}>
                         {m.fullName} ({m.role})
