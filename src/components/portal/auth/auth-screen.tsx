@@ -11,6 +11,15 @@ import { ArrowRight, Mail, Loader2, CheckCircle2, ExternalLink, Zap } from "luci
 
 type Step = "input" | "sent" | "verifying";
 
+interface MagicLinkResponse {
+  ok: boolean;
+  emailSent: boolean;
+  magicLink?: string;
+  isNewUser: boolean;
+  message?: string;
+  error?: string;
+}
+
 export function AuthScreen() {
   const setSession = useAuth((s) => s.setSession);
   const [step, setStep] = React.useState<Step>("input");
@@ -26,13 +35,22 @@ export function AuthScreen() {
     }
     setLoading(true);
     try {
-      const res = await apiPost<{ ok: boolean; magicLink: string; isNewUser: boolean; email: string }>(
+      const res = await apiPost<MagicLinkResponse>(
         "/api/auth/request-magic-link",
         { email: email.trim() }
       );
-      setMagicLink(res.magicLink);
-      setStep("sent");
-      toast.success("Magic link generated");
+
+      if (res.emailSent) {
+        // Real email was sent
+        setStep("sent");
+        setMagicLink(""); // Don't show the link — it was emailed
+        toast.success(res.message || `Magic link sent to ${email}`);
+      } else if (res.magicLink) {
+        // Demo mode — show the link directly
+        setMagicLink(res.magicLink);
+        setStep("sent");
+        toast.info(res.message || "Demo mode — use the link below");
+      }
     } catch (err) {
       toast.error("Failed to generate magic link", {
         description: (err as Error).message,
@@ -153,15 +171,15 @@ export function AuthScreen() {
             </div>
           )}
 
-          {step === "sent" && (
+          {step === "sent" && magicLink && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-emerald-foreground">
+              <div className="flex items-center gap-2 text-amber-foreground">
                 <CheckCircle2 className="h-5 w-5" />
-                <span className="text-sm font-medium">Magic link ready</span>
+                <span className="text-sm font-medium">Demo mode — link generated</span>
               </div>
               <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
                 <p className="text-muted-foreground">
-                  In production, an email would be sent to <span className="font-mono text-foreground">{email}</span>.
+                  Gmail SMTP is not fully configured or email sending failed.
                   For this demo, click the link below to sign in:
                 </p>
               </div>
@@ -172,6 +190,29 @@ export function AuthScreen() {
                 <ExternalLink className="h-4 w-4" />
                 Click here to sign in
               </button>
+              <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => setStep("input")}>
+                Use a different email
+              </Button>
+            </div>
+          )}
+
+          {step === "sent" && !magicLink && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-emerald-foreground">
+                <CheckCircle2 className="h-5 w-5" />
+                <span className="text-sm font-medium">Check your email</span>
+              </div>
+              <div className="rounded-lg border border-emerald/30 bg-emerald/5 p-4 text-sm">
+                <p className="text-muted-foreground">
+                  We sent a magic link to <span className="font-mono text-foreground">{email}</span>.
+                </p>
+                <p className="mt-2 text-muted-foreground">
+                  Click the link in the email to sign in. The link expires in 15 minutes.
+                </p>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Don't see it? Check your spam folder, or try again with a different email.
+                </p>
+              </div>
               <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => setStep("input")}>
                 Use a different email
               </Button>
