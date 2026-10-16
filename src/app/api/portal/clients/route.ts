@@ -42,6 +42,63 @@ export async function GET() {
 
 import { sendInvitationEmail } from "@/lib/email";
 
+/**
+ * Safely resolves an owner/actor/assignee ID to an existing Profile.id.
+ * If the profile does not exist, returns null to avoid foreign key violations.
+ */
+async function resolveProfileId(idOrEmailOrNull?: string | null): Promise<string | null> {
+  if (!idOrEmailOrNull || idOrEmailOrNull === "unassigned" || idOrEmailOrNull === "none" || idOrEmailOrNull === "__none__") {
+    return null;
+  }
+  try {
+    const profile = await db.profile.findFirst({
+      where: {
+        OR: [
+          { id: idOrEmailOrNull },
+          { email: idOrEmailOrNull.toLowerCase() },
+        ],
+      },
+      select: { id: true },
+    });
+    if (profile) return profile.id;
+
+    // Check if it's a User.id (from NextAuth session) and map to their Profile.id
+    const user = await db.user.findUnique({
+      where: { id: idOrEmailOrNull },
+      select: { email: true },
+    });
+    if (user?.email) {
+      const profileByEmail = await db.profile.findUnique({
+        where: { email: user.email.toLowerCase() },
+        select: { id: true },
+      });
+      if (profileByEmail) return profileByEmail.id;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Safely resolves a project ID to an existing Project.id.
+ */
+async function resolveProjectId(projectId?: string | null): Promise<string | null> {
+  if (!projectId || projectId === "none" || projectId === "unassigned" || projectId === "__none__") {
+    return null;
+  }
+  try {
+    const project = await db.project.findUnique({
+      where: { id: projectId },
+      select: { id: true },
+    });
+    return project?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -59,8 +116,11 @@ export async function POST(req: Request) {
       : body.tags
       ? String(body.tags)
       : "";
-    const ownerId = body.ownerId || null;
-    const projectId = body.projectId ? String(body.projectId).trim() : null;
+
+    // Safely resolve foreign keys
+    const validOwnerId = await resolveProfileId(body.ownerId);
+    const validActorId = await resolveProfileId(body.actorId);
+    const validProjectId = await resolveProjectId(body.projectId);
     const taskTitle = body.taskTitle ? String(body.taskTitle).trim() : null;
     const sendInvite = body.sendInvite !== false; // default true if email provided
 
@@ -80,17 +140,28 @@ export async function POST(req: Request) {
           company: company || name,
           status: status,
           tags: tags,
-          ownerId: ownerId,
+          ownerId: validOwnerId,
           accentColor: accentColor,
           notes: notes,
           customFields: JSON.stringify(body.customFields ?? {}),
         },
       });
 
-      // Add primary email contact if email given
+      // Add primary email contact if email given (using upsert so unique constraint never throws)
       if (normalizedEmail) {
-        await db.clientContact.create({
-          data: {
+        await db.clientContact.upsert({
+          where: {
+            type_valueNormalized: {
+              type: "email",
+              valueNormalized: normalizedEmail,
+            },
+          },
+          update: {
+            clientId: createdClient.id,
+            value: rawEmail,
+            isPrimary: true,
+          },
+          create: {
             clientId: createdClient.id,
             type: "email",
             value: rawEmail,
@@ -99,7 +170,6 @@ export async function POST(req: Request) {
             isPrimary: true,
           },
         }).catch((e) => {
-          // Contact might already exist
           console.warn("[POST /api/portal/clients] contact creation non-fatal:", e);
         });
       }
@@ -165,11 +235,11 @@ export async function POST(req: Request) {
       });
 
       // 3. Create initial assigned task if requested
-      if (projectId && taskTitle) {
+      if (validProjectId && taskTitle) {
         try {
           createdTask = await db.task.create({
             data: {
-              projectId: projectId,
+              projectId: validProjectId,
               title: taskTitle,
               status: "todo",
               assigneeId: profile.id,
@@ -193,6 +263,8 @@ export async function POST(req: Request) {
             userId: user.id,
             expiresAt,
           },
+        }).catch((tokenErr) => {
+          console.warn("[POST /api/portal/clients] token creation non-fatal:", tokenErr);
         });
 
         const appUrl =
@@ -202,12 +274,16 @@ export async function POST(req: Request) {
 
         // Fetch project title for the email if assigned
         let projectName: string | undefined = undefined;
-        if (projectId) {
-          const prj = await db.project.findUnique({
-            where: { id: projectId },
-            select: { title: true },
-          });
-          projectName = prj?.title;
+        if (validProjectId) {
+          try {
+            const prj = await db.project.findUnique({
+              where: { id: validProjectId },
+              select: { title: true },
+            });
+            projectName = prj?.title;
+          } catch {
+            // ignore
+          }
         }
 
         // Send email via Gmail SMTP
@@ -230,22 +306,26 @@ export async function POST(req: Request) {
       }
     }
 
-    // 5. Audit log
-    await db.auditLog.create({
-      data: {
-        actorId: body.actorId ?? null,
-        action: role === "client" ? "client.created_and_invited" : "team.member_invited",
-        entity: "client",
-        entityId: createdClient?.id ?? profile?.id,
-        metadataJson: JSON.stringify({
-          name,
-          email: normalizedEmail,
-          role,
-          emailSent,
-          hasTask: !!createdTask,
-        }),
-      },
-    }).catch(() => null);
+    // 5. Audit log (fail-safe)
+    try {
+      await db.auditLog.create({
+        data: {
+          actorId: validActorId,
+          action: role === "client" ? "client.created_and_invited" : "team.member_invited",
+          entity: "client",
+          entityId: createdClient?.id ?? profile?.id ?? "unknown",
+          metadataJson: JSON.stringify({
+            name,
+            email: normalizedEmail,
+            role,
+            emailSent,
+            hasTask: !!createdTask,
+          }),
+        },
+      });
+    } catch (auditErr) {
+      console.warn("[POST /api/portal/clients] audit log non-fatal:", auditErr);
+    }
 
     return NextResponse.json({
       ok: true,

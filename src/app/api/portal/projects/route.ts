@@ -37,17 +37,36 @@ function mapStage(stage: string, status: string): string {
 }
 
 export async function POST(req: Request) {
-  const body = await req.json();
-  const created = await db.project.create({
-    data: {
-      clientId: body.clientId,
-      title: body.title,
-      status: body.status ?? "planning",
-      stage: body.stage ?? "To Do",
-      dueDate: body.dueDate ? new Date(body.dueDate) : null,
-      position: body.position ?? 0,
-    },
-  });
+  try {
+    const body = await req.json();
+    if (!body.title || !body.clientId) {
+      return NextResponse.json(
+        { error: "Project title and client are required" },
+        { status: 400 }
+      );
+    }
+
+    const client = await db.client.findUnique({
+      where: { id: body.clientId },
+      select: { id: true },
+    });
+    if (!client) {
+      return NextResponse.json(
+        { error: "Selected client does not exist" },
+        { status: 400 }
+      );
+    }
+
+    const created = await db.project.create({
+      data: {
+        clientId: body.clientId,
+        title: body.title,
+        status: body.status ?? "planning",
+        stage: body.stage ?? "To Do",
+        dueDate: body.dueDate ? new Date(body.dueDate) : null,
+        position: body.position ?? 0,
+      },
+    });
   if (Array.isArray(body.milestones)) {
     for (let i = 0; i < body.milestones.length; i++) {
       const m = body.milestones[i];
@@ -62,4 +81,11 @@ export async function POST(req: Request) {
     }
   }
   return NextResponse.json({ project: created });
+  } catch (err) {
+    console.error("[POST /api/portal/projects]", err);
+    return NextResponse.json(
+      { error: "Failed to create project", details: (err as Error).message },
+      { status: 500 }
+    );
+  }
 }

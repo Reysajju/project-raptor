@@ -93,12 +93,38 @@ export async function GET(
   });
 }
 
+async function resolveProfileId(idOrEmailOrNull?: string | null): Promise<string | null> {
+  if (!idOrEmailOrNull || idOrEmailOrNull === "unassigned" || idOrEmailOrNull === "none" || idOrEmailOrNull === "__none__") {
+    return null;
+  }
+  try {
+    const profile = await db.profile.findFirst({
+      where: {
+        OR: [
+          { id: idOrEmailOrNull },
+          { email: idOrEmailOrNull.toLowerCase() },
+        ],
+      },
+      select: { id: true },
+    });
+    return profile?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
   const body = await req.json();
+
+  let safeOwnerId: string | null | undefined = undefined;
+  if (body.ownerId !== undefined) {
+    safeOwnerId = await resolveProfileId(body.ownerId);
+  }
+
   const updated = await db.client.update({
     where: { id },
     data: {
@@ -108,7 +134,7 @@ export async function PATCH(
       ...(body.tags !== undefined && {
         tags: Array.isArray(body.tags) ? body.tags.join(",") : body.tags,
       }),
-      ...(body.ownerId !== undefined && { ownerId: body.ownerId }),
+      ...(body.ownerId !== undefined && { ownerId: safeOwnerId }),
       ...(body.accentColor !== undefined && { accentColor: body.accentColor }),
       ...(body.notes !== undefined && { notes: body.notes }),
       ...(body.customFields !== undefined && {

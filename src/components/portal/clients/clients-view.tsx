@@ -884,6 +884,7 @@ function NewClientSheet() {
   const onOpenChange = (v: boolean) => {
     setOpen(v);
     if (v) {
+      const defaultOwner = team.find((m) => m.id === user?.id)?.id ?? "unassigned";
       setForm({
         name: "",
         email: "",
@@ -891,10 +892,10 @@ function NewClientSheet() {
         company: "",
         status: "active",
         tags: "",
-        ownerId: user?.id ?? "",
+        ownerId: defaultOwner,
         accentColor: "violet",
         notes: "",
-        projectId: "",
+        projectId: "none",
         taskTitle: "",
         sendInvite: true,
       });
@@ -921,6 +922,15 @@ function NewClientSheet() {
     }
     setSubmitting(true);
     try {
+      const safeOwnerId =
+        form.ownerId && form.ownerId !== "unassigned" && form.ownerId !== "none"
+          ? form.ownerId
+          : null;
+      const safeProjectId =
+        form.projectId && form.projectId !== "none" && form.projectId !== "unassigned"
+          ? form.projectId
+          : null;
+
       const res = await apiPost<{
         ok: boolean;
         client?: any;
@@ -939,13 +949,13 @@ function NewClientSheet() {
           .split(",")
           .map((t) => t.trim())
           .filter(Boolean),
-        ownerId: form.ownerId || null,
+        ownerId: safeOwnerId,
         accentColor: form.accentColor,
         notes: form.notes,
-        projectId: form.projectId || undefined,
+        projectId: safeProjectId,
         taskTitle: form.taskTitle.trim() || undefined,
         sendInvite: form.sendInvite,
-        actorId: user?.id ?? null,
+        actorId: safeOwnerId,
       });
 
       const selectedProj = projects.find((p) => p.id === form.projectId);

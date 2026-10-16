@@ -46,11 +46,26 @@ export async function POST(req: Request) {
       );
     }
 
+    let safeAssigneeId: string | null = null;
+    if (assigneeId && assigneeId !== "unassigned" && assigneeId !== "none") {
+      try {
+        const profile = await db.profile.findFirst({
+          where: {
+            OR: [{ id: assigneeId }, { email: String(assigneeId).toLowerCase() }],
+          },
+          select: { id: true },
+        });
+        safeAssigneeId = profile?.id ?? null;
+      } catch {
+        safeAssigneeId = null;
+      }
+    }
+
     const task = await db.task.create({
       data: {
         projectId,
         title: title.trim(),
-        assigneeId: assigneeId || null,
+        assigneeId: safeAssigneeId,
         dueDate: dueDate ? new Date(dueDate) : null,
         status,
         position: Number(position) || 0,
